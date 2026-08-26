@@ -1,0 +1,58 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/matrix/matrix_screen.gd" id="1"]
+
+[node name="MatrixScreen" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+edges_layer_path = NodePath("EdgesLayer")
+nodes_layer_path = NodePath("NodesLayer")
+monster_label_path = NodePath("InfoPanel/MonsterLabel")
+points_label_path = NodePath("InfoPanel/PointsLabel")
+stats_label_path = NodePath("InfoPanel/StatsLabel")
+moves_label_path = NodePath("InfoPanel/MovesLabel")
+message_label_path = NodePath("MessageLabel")
+grant_point_button_path = NodePath("GrantPointButton")
+
+[node name="EdgesLayer" type="Node2D" parent="."]
+
+[node name="NodesLayer" type="Control" parent="."]
+mouse_filter = 2
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="InfoPanel" type="VBoxContainer" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 420.0
+offset_bottom = 150.0
+
+[node name="MonsterLabel" type="Label" parent="InfoPanel"]
+text = "Monster"
+
+[node name="PointsLabel" type="Label" parent="InfoPanel"]
+text = "Points: 0"
+
+[node name="StatsLabel" type="Label" parent="InfoPanel"]
+autowrap_mode = 3
+text = "Stat bonuses: none yet"
+
+[node name="MovesLabel" type="Label" parent="InfoPanel"]
+autowrap_mode = 3
+text = "Moves learned: none yet"
+
+[node name="GrantPointButton" type="Button" parent="."]
+offset_left = 20.0
+offset_top = 160.0
+offset_right = 260.0
+offset_bottom = 200.0
+text = "Level Up (+1 point)"
+
+[node name="MessageLabel" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 600.0
+offset_right = 1130.0
+offset_bottom = 640.0
+autowrap_mode = 3
+text = ""

@@ -1,0 +1,7 @@
+# Godot 4+ specific ignores
+.godot/
+/project-kamimon/android/
+
+# Obsidian workspace state (personal UI state, not project content)
+Kamimon_Design_Notes/
+project-kamimon/addons/
