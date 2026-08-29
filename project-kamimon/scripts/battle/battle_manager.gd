@@ -1,49 +1,69 @@
 extends Node2D
 class_name BattleManager
-## Orchestrates one ATB battle: gauge ticking, player input, attack
-## resolution, switching, and win/loss detection.
+## Orchestrates one Wait-mode ATB battle between two parties of up to four
+## monsters each. Every non-downed combatant on both sides ticks
+## simultaneously; the instant anyone becomes ready, ticking pauses so that
+## turn can be resolved (Wait mode — nobody else's gauge fills while a menu
+## is open), then resumes. Multiple combatants can become ready in the same
+## frame; they queue up and take their turns one at a time.
 ##
-## References to the other pieces (HUD, action menu, sprites, message label)
-## are wired in the Inspector via the exported NodePath slots below and
-## resolved in _ready() — the scene that owns this node decides what's
-## plugged into it, this script never hardcodes a path to go find them on
-## its own.
+## No mid-battle switching. A monster reduced to 0 HP goes downed and stays
+## out for the rest of the fight (see Combatant.is_downed) instead of being
+## swapped — nothing revives it yet, that's a later move type.
+##
+## References to the other pieces (HUD, action menu, sprite containers,
+## message label) are wired in the Inspector via the exported NodePath
+## slots below and resolved in _ready().
 
 signal battle_won
 signal battle_lost
+signal battle_fled
 
 @export var hud_path: NodePath
 @export var action_menu_path: NodePath
 @export var message_label_path: NodePath
-@export var player_battler_sprite_path: NodePath
-@export var enemy_battler_sprite_path: NodePath
+@export var player_battler_container_path: NodePath
+@export var enemy_battler_container_path: NodePath
+
+## "Attack" is the universal baseline move every monster has regardless of
+## its assigned loadout, same spirit as Guard — not one of the 3 assigned
+## moves, so it isn't defined as a MoveData resource anywhere.
+const BASIC_ATTACK_POWER := 10
+const BASIC_ATTACK_ACCURACY := 1.0
+const SPRITE_SPACING := 110.0
+const SPRITE_SCALE := Vector2(1.5, 1.5)
 
 var hud: BattleHUD
 var action_menu: BattleActionMenu
 var message_label: Label
-var player_battler_sprite: Sprite2D
-var enemy_battler_sprite: Sprite2D
+var player_battler_container: Node2D
+var enemy_battler_container: Node2D
 
-enum State { TICKING, PLAYER_INPUT, FORCED_SWITCH, RESOLVING, BATTLE_OVER }
+enum State { TICKING, PLAYER_INPUT, RESOLVING, BATTLE_OVER }
 
 var player_party: Array[Combatant] = []
 var enemy_party: Array[Combatant] = []
-var player_active_index: int = 0
-var enemy_active_index: int = 0
+var player_sprites: Array[Sprite2D] = []
+var enemy_sprites: Array[Sprite2D] = []
+var ready_queue: Array[Combatant] = []
+var _current_actor: Combatant = null
 var state: State = State.TICKING
 
 func _ready() -> void:
 	hud = get_node(hud_path)
 	action_menu = get_node(action_menu_path)
 	message_label = get_node(message_label_path)
-	player_battler_sprite = get_node(player_battler_sprite_path)
-	enemy_battler_sprite = get_node(enemy_battler_sprite_path)
+	player_battler_container = get_node(player_battler_container_path)
+	enemy_battler_container = get_node(enemy_battler_container_path)
 	_build_parties()
+	_build_sprites()
 	action_menu.attack_selected.connect(_on_attack_selected)
-	action_menu.switch_selected.connect(_on_switch_selected)
-	_refresh_sprites()
+	action_menu.guard_selected.connect(_on_guard_selected)
+	action_menu.move_selected.connect(_on_move_selected)
+	action_menu.run_selected.connect(_on_run_selected)
+	hud.build(player_party, enemy_party)
 	_refresh_hud()
-	message_label.text = "A wild %s appeared!" % _enemy_active().data.display_name
+	message_label.text = "A wild party appeared!"
 	action_menu.hide_all()
 	state = State.TICKING
 
@@ -53,124 +73,187 @@ func _build_parties() -> void:
 	for monster in PlaceholderBattleData.get_enemy_party():
 		enemy_party.append(Combatant.new(monster))
 
-func _player_active() -> Combatant:
-	return player_party[player_active_index]
+func _build_sprites() -> void:
+	player_sprites = _build_sprite_row(player_battler_container, player_party, -1)
+	enemy_sprites = _build_sprite_row(enemy_battler_container, enemy_party, 1)
 
-func _enemy_active() -> Combatant:
-	return enemy_party[enemy_active_index]
+## direction is -1 for the player's row (fans left of its anchor) and 1 for
+## the enemy row (fans right), so both rows spread away from the middle.
+func _build_sprite_row(container: Node2D, party: Array[Combatant], direction: int) -> Array[Sprite2D]:
+	var sprites: Array[Sprite2D] = []
+	for i in party.size():
+		var sprite := Sprite2D.new()
+		sprite.texture = party[i].data.battler_sprite
+		sprite.scale = SPRITE_SCALE
+		sprite.position = Vector2(direction * i * SPRITE_SPACING, 0)
+		container.add_child(sprite)
+		sprites.append(sprite)
+	return sprites
 
-## Only the two active combatants tick — bench monsters do not charge while
-## waiting. That is a simplification, not a rule from the design doc; swap
-## it out if the party-wide ATB feel is wanted instead.
 func _process(delta: float) -> void:
 	if state != State.TICKING:
 		return
-	_player_active().tick(delta)
-	_enemy_active().tick(delta)
+	_tick_all(delta)
 	_refresh_hud()
-	if _player_active().is_ready():
-		_start_player_turn()
-	elif _enemy_active().is_ready():
-		_run_enemy_turn()
+	_collect_ready()
+	if not ready_queue.is_empty():
+		_start_turn(ready_queue.pop_front())
 
-func _start_player_turn() -> void:
+func _tick_all(delta: float) -> void:
+	for c in player_party:
+		c.tick(delta)
+	for c in enemy_party:
+		c.tick(delta)
+
+func _collect_ready() -> void:
+	for c in player_party:
+		if c.is_ready() and not c.is_downed() and not (c in ready_queue):
+			ready_queue.append(c)
+	for c in enemy_party:
+		if c.is_ready() and not c.is_downed() and not (c in ready_queue):
+			ready_queue.append(c)
+
+func _start_turn(actor: Combatant) -> void:
+	if actor.is_downed():
+		return
+	actor.reset_gauge()
+	actor.clear_guard()
+	_current_actor = actor
+	if actor in player_party:
+		_start_player_turn(actor)
+	else:
+		_start_enemy_turn(actor)
+
+func _start_player_turn(actor: Combatant) -> void:
 	state = State.PLAYER_INPUT
-	action_menu.open(_player_active().data.moves, _player_party_status())
-	message_label.text = "%s is ready to act!" % _player_active().data.display_name
+	message_label.text = "%s is ready to act!" % actor.data.display_name
+	action_menu.open(actor.data.moves, _party_status(player_party), _party_status(enemy_party))
 
-func _player_party_status() -> Array[Dictionary]:
+func _party_status(party: Array[Combatant]) -> Array[Dictionary]:
 	var status: Array[Dictionary] = []
-	for i in player_party.size():
-		var c := player_party[i]
+	for c in party:
 		status.append({
 			"name": c.data.display_name,
-			"is_fainted": c.is_fainted(),
-			"is_active": i == player_active_index,
+			"hp": c.current_hp,
+			"max_hp": c.data.max_hp,
+			"is_downed": c.is_downed(),
 		})
 	return status
 
-func _on_attack_selected(move_index: int) -> void:
+func _on_attack_selected(target_index: int) -> void:
 	if state != State.PLAYER_INPUT:
 		return
-	var actor := _player_active()
-	var move := actor.data.moves[move_index]
-	_resolve_attack(actor, _enemy_active(), move)
-	actor.reset_gauge()
-	action_menu.hide_all()
-	_after_player_action()
+	_resolve_player_action(_basic_attack_move(), target_index)
 
-func _on_switch_selected(party_index: int) -> void:
-	if state != State.PLAYER_INPUT and state != State.FORCED_SWITCH:
+func _on_move_selected(move_index: int, target_index: int) -> void:
+	if state != State.PLAYER_INPUT:
 		return
-	var was_forced := state == State.FORCED_SWITCH
-	player_active_index = party_index
-	message_label.text = "Go, %s!" % _player_active().data.display_name
-	_refresh_sprites()
-	_refresh_hud()
-	action_menu.hide_all()
-	if was_forced:
-		state = State.TICKING
-	else:
-		_after_player_action()
+	var moves := _current_actor.data.moves
+	if move_index < 0 or move_index >= moves.size():
+		return
+	_resolve_player_action(moves[move_index], target_index)
 
-func _after_player_action() -> void:
+func _on_guard_selected() -> void:
+	if state != State.PLAYER_INPUT:
+		return
+	_current_actor.guard()
+	message_label.text = "%s guards." % _current_actor.data.display_name
+	action_menu.hide_all()
+	_after_action()
+
+## Flee is unconditional for the prototype — no escape-chance formula exists
+## yet, so Run always succeeds and ends the battle immediately.
+func _on_run_selected() -> void:
+	if state != State.PLAYER_INPUT:
+		return
+	state = State.BATTLE_OVER
+	message_label.text = "Got away safely!"
+	action_menu.hide_all()
+	battle_fled.emit()
+
+func _resolve_player_action(move: MoveData, target_index: int) -> void:
+	if target_index < 0 or target_index >= enemy_party.size() or enemy_party[target_index].is_downed():
+		action_menu.hide_all()
+		_after_action()
+		return
+	state = State.RESOLVING
+	_resolve_attack(_current_actor, enemy_party[target_index], move)
+	action_menu.hide_all()
+	_after_action()
+
+func _after_action() -> void:
+	_current_actor = null
 	if _check_battle_over():
 		return
 	state = State.TICKING
 
-func _run_enemy_turn() -> void:
+func _start_enemy_turn(actor: Combatant) -> void:
 	state = State.RESOLVING
-	var actor := _enemy_active()
-	var moves := actor.data.moves
-	var move: MoveData = moves[randi() % moves.size()]
-	_resolve_attack(actor, _player_active(), move)
-	actor.reset_gauge()
-	if _check_battle_over():
-		return
-	if _player_active().is_fainted():
-		_prompt_forced_switch()
-	else:
-		state = State.TICKING
+	var targets := _living(player_party)
+	if not targets.is_empty():
+		var target: Combatant = targets[randi() % targets.size()]
+		var moves := actor.data.moves
+		var move: MoveData = moves[randi() % moves.size()] if not moves.is_empty() else _basic_attack_move()
+		_resolve_attack(actor, target, move)
+	_after_action()
 
-func _prompt_forced_switch() -> void:
-	state = State.FORCED_SWITCH
-	message_label.text = "%s fainted! Choose your next monster." % _player_active().data.display_name
-	action_menu.open_switch_only(_player_party_status())
+func _living(party: Array[Combatant]) -> Array[Combatant]:
+	var out: Array[Combatant] = []
+	for c in party:
+		if not c.is_downed():
+			out.append(c)
+	return out
+
+func _basic_attack_move() -> MoveData:
+	var move := MoveData.new()
+	move.display_name = "Attack"
+	move.power = BASIC_ATTACK_POWER
+	move.accuracy = BASIC_ATTACK_ACCURACY
+	return move
 
 func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -> void:
 	if randf() > move.accuracy:
 		message_label.text = "%s used %s, but it missed!" % [attacker.data.display_name, move.display_name]
 		return
-	# Flat power vs. defense goes here until the type chart exists.
+	# Flat power vs. defense goes here until the Domain type chart is wired in.
 	var raw: int = attacker.data.attack + move.power - defender.data.defense
 	var damage := int(max(1, raw) * randf_range(0.9, 1.1))
+	if defender.is_defending:
+		damage = max(1, int(damage * 0.5))
 	defender.apply_damage(damage)
-	message_label.text = "%s used %s! It dealt %d damage." % [attacker.data.display_name, move.display_name, damage]
+	message_label.text = "%s used %s! It dealt %d damage to %s." % [
+		attacker.data.display_name, move.display_name, damage, defender.data.display_name
+	]
+	if defender.is_downed():
+		message_label.text += " %s is downed!" % defender.data.display_name
 	_refresh_hud()
 
 func _check_battle_over() -> bool:
-	if _all_fainted(enemy_party):
+	if _all_downed(enemy_party):
 		state = State.BATTLE_OVER
-		message_label.text = "%s fainted! You won!" % _enemy_active().data.display_name
+		message_label.text = "The enemy party is downed! You won!"
 		battle_won.emit()
 		return true
-	if _all_fainted(player_party):
+	if _all_downed(player_party):
 		state = State.BATTLE_OVER
-		message_label.text = "Your whole party fainted! You lost."
+		message_label.text = "Your whole party is downed! You lost."
 		battle_lost.emit()
 		return true
 	return false
 
-func _all_fainted(party: Array[Combatant]) -> bool:
+func _all_downed(party: Array[Combatant]) -> bool:
 	for c in party:
-		if not c.is_fainted():
+		if not c.is_downed():
 			return false
 	return true
 
-func _refresh_sprites() -> void:
-	player_battler_sprite.texture = _player_active().data.battler_sprite
-	enemy_battler_sprite.texture = _enemy_active().data.battler_sprite
-
 func _refresh_hud() -> void:
-	hud.update_player(_player_active())
-	hud.update_enemy(_enemy_active())
+	hud.update_party(player_party, false)
+	hud.update_party(enemy_party, true)
+	_refresh_sprite_visibility()
+
+func _refresh_sprite_visibility() -> void:
+	for i in player_sprites.size():
+		player_sprites[i].modulate = Color(1, 1, 1, 0.35) if player_party[i].is_downed() else Color(1, 1, 1, 1)
+	for i in enemy_sprites.size():
+		enemy_sprites[i].modulate = Color(1, 1, 1, 0.35) if enemy_party[i].is_downed() else Color(1, 1, 1, 1)

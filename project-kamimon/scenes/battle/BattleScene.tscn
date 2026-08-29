@@ -10,114 +10,200 @@ script = ExtResource("1")
 hud_path = NodePath("HUD")
 action_menu_path = NodePath("ActionMenu")
 message_label_path = NodePath("MessageLabel")
-player_battler_sprite_path = NodePath("PlayerBattler")
-enemy_battler_sprite_path = NodePath("EnemyBattler")
+player_battler_container_path = NodePath("PlayerBattlerContainer")
+enemy_battler_container_path = NodePath("EnemyBattlerContainer")
 
 [node name="Background" type="Sprite2D" parent="." unique_id=1723537104]
-position = Vector2(576, 324)
+position = Vector2(575.1, 321.58746)
+scale = Vector2(1.08, 1.094)
 texture = ExtResource("4")
 
-[node name="EnemyBattler" type="Sprite2D" parent="." unique_id=644435709]
-position = Vector2(820, 220)
-scale = Vector2(2, 2)
+[node name="EnemyBattlerContainer" type="Node2D" parent="." unique_id=644435709]
+position = Vector2(740, 230)
 
-[node name="PlayerBattler" type="Sprite2D" parent="." unique_id=859520097]
-position = Vector2(300, 460)
-scale = Vector2(2, 2)
+[node name="PlayerBattlerContainer" type="Node2D" parent="." unique_id=859520097]
+position = Vector2(380, 340)
 
 [node name="HUD" type="Control" parent="." unique_id=798091883]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("2")
 
-[node name="PlayerPanel" type="VBoxContainer" parent="HUD" unique_id=1234841362]
+[node name="PlayerPartyPanel" type="VBoxContainer" parent="HUD" unique_id=1234841362]
+unique_name_in_owner = true
 layout_mode = 0
-offset_left = 40.0
-offset_top = 380.0
-offset_right = 340.0
-offset_bottom = 460.0
+offset_left = 20.0
+offset_top = 10.0
+offset_right = 352.0
+offset_bottom = 190.0
 
-[node name="PlayerNameLabel" type="Label" parent="HUD/PlayerPanel" unique_id=638209464]
+[node name="EnemyPartyPanel" type="VBoxContainer" parent="HUD" unique_id=485168551]
 unique_name_in_owner = true
-layout_mode = 2
-text = "Player Monster"
-
-[node name="PlayerHPBar" type="ProgressBar" parent="HUD/PlayerPanel" unique_id=1873977842]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 20)
-layout_mode = 2
-value = 100.0
-show_percentage = false
-
-[node name="PlayerATBBar" type="ProgressBar" parent="HUD/PlayerPanel" unique_id=1017998732]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 12)
-layout_mode = 2
-show_percentage = false
-
-[node name="EnemyPanel" type="VBoxContainer" parent="HUD" unique_id=485168551]
 layout_mode = 0
-offset_left = 780.0
-offset_top = 40.0
-offset_right = 1080.0
-offset_bottom = 120.0
-
-[node name="EnemyNameLabel" type="Label" parent="HUD/EnemyPanel" unique_id=1327163793]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Enemy Monster"
-
-[node name="EnemyHPBar" type="ProgressBar" parent="HUD/EnemyPanel" unique_id=693398326]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 20)
-layout_mode = 2
-value = 100.0
-show_percentage = false
-
-[node name="EnemyATBBar" type="ProgressBar" parent="HUD/EnemyPanel" unique_id=1865343345]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 12)
-layout_mode = 2
-show_percentage = false
+offset_left = 800.0
+offset_top = 10.0
+offset_right = 1132.0
+offset_bottom = 190.0
 
 [node name="MessageLabel" type="Label" parent="." unique_id=1963972214]
-offset_left = 40.0
-offset_top = 500.0
-offset_right = 1112.0
-offset_bottom = 540.0
+offset_left = 20.0
+offset_top = 378.0
+offset_right = 1132.0
+offset_bottom = 408.0
 autowrap_mode = 3
 
 [node name="ActionMenu" type="Control" parent="." unique_id=1198908261]
 layout_mode = 3
 anchors_preset = 0
-offset_left = 40.0
-offset_top = 550.0
-offset_right = 400.0
-offset_bottom = 640.0
+offset_left = 20.0
+offset_top = 415.0
+offset_right = 520.0
+offset_bottom = 645.0
 script = ExtResource("3")
 
-[node name="RootMenu" type="VBoxContainer" parent="ActionMenu" unique_id=1597854991]
+[node name="RootMenuScroll" type="ScrollContainer" parent="ActionMenu" unique_id=1597854990]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
 
-[node name="AttackButton" type="Button" parent="ActionMenu/RootMenu" unique_id=1841970697]
+[node name="RootMenu" type="VBoxContainer" parent="ActionMenu/RootMenuScroll" unique_id=1597854991]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="BattleButton" type="Button" parent="ActionMenu/RootMenuScroll/RootMenu" unique_id=1841970697]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Battle"
+
+[node name="ItemsButton" type="Button" parent="ActionMenu/RootMenuScroll/RootMenu" unique_id=1841970698]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Items"
+
+[node name="StatsButton" type="Button" parent="ActionMenu/RootMenuScroll/RootMenu" unique_id=1841970699]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Stats"
+
+[node name="RunButton" type="Button" parent="ActionMenu/RootMenuScroll/RootMenu" unique_id=1841970700]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Run"
+
+[node name="BattleMenuScroll" type="ScrollContainer" parent="ActionMenu" unique_id=1113889928]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="BattleMenu" type="VBoxContainer" parent="ActionMenu/BattleMenuScroll" unique_id=1113889929]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="AttackButton" type="Button" parent="ActionMenu/BattleMenuScroll/BattleMenu" unique_id=1113889930]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Attack"
 
-[node name="SwitchButton" type="Button" parent="ActionMenu/RootMenu" unique_id=1359078889]
+[node name="GuardButton" type="Button" parent="ActionMenu/BattleMenuScroll/BattleMenu" unique_id=1113889931]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Switch"
+text = "Guard"
 
-[node name="MoveMenu" type="VBoxContainer" parent="ActionMenu" unique_id=1113889929]
+[node name="Move1Button" type="Button" parent="ActionMenu/BattleMenuScroll/BattleMenu" unique_id=1113889932]
+unique_name_in_owner = true
+layout_mode = 2
+text = "--"
+
+[node name="Move2Button" type="Button" parent="ActionMenu/BattleMenuScroll/BattleMenu" unique_id=1113889933]
+unique_name_in_owner = true
+layout_mode = 2
+text = "--"
+
+[node name="Move3Button" type="Button" parent="ActionMenu/BattleMenuScroll/BattleMenu" unique_id=1113889934]
+unique_name_in_owner = true
+layout_mode = 2
+text = "--"
+
+[node name="BattleBackButton" type="Button" parent="ActionMenu/BattleMenuScroll/BattleMenu" unique_id=1113889935]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Back"
+
+[node name="TargetMenuScroll" type="ScrollContainer" parent="ActionMenu" unique_id=547438850]
 unique_name_in_owner = true
 visible = false
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
 
-[node name="SwitchMenu" type="VBoxContainer" parent="ActionMenu" unique_id=547438851]
+[node name="TargetMenu" type="VBoxContainer" parent="ActionMenu/TargetMenuScroll" unique_id=547438851]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="TargetBackButton" type="Button" parent="ActionMenu/TargetMenuScroll/TargetMenu" unique_id=547438852]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Back"
+
+[node name="ItemsMenuScroll" type="ScrollContainer" parent="ActionMenu" unique_id=547438859]
 unique_name_in_owner = true
 visible = false
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="ItemsMenu" type="VBoxContainer" parent="ActionMenu/ItemsMenuScroll" unique_id=547438860]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ItemsLabel" type="Label" parent="ActionMenu/ItemsMenuScroll/ItemsMenu" unique_id=547438861]
+layout_mode = 2
+text = "No items yet."
+
+[node name="ItemsBackButton" type="Button" parent="ActionMenu/ItemsMenuScroll/ItemsMenu" unique_id=547438862]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Back"
+
+[node name="StatsMenuScroll" type="ScrollContainer" parent="ActionMenu" unique_id=547438869]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="StatsMenu" type="VBoxContainer" parent="ActionMenu/StatsMenuScroll" unique_id=547438870]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="StatsBackButton" type="Button" parent="ActionMenu/StatsMenuScroll/StatsMenu" unique_id=547438871]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Back"
