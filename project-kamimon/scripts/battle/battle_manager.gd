@@ -33,6 +33,16 @@ const BASIC_ATTACK_ACCURACY := 1.0
 const SPRITE_SPACING := 110.0
 const SPRITE_SCALE := Vector2(1.5, 1.5)
 
+## Combat damage formula constants (LOCKED shape 2026-08-30, these specific
+## numbers are tunable balance dials, not locked — see Kamimon_Design_Notes/
+## 050 Combat.md). GEAR_CAP in particular is flagged there as too soft
+## (Woden wants gear to matter more); revisit once real gear content exists.
+const LEVEL_CAP := 4.0
+const LEVEL_STEEPNESS := 4.0
+const STAT_CAP := 2.5
+const GEAR_CAP := 1.5
+const TYPE_SCALE := 1.0
+
 var hud: BattleHUD
 var action_menu: BattleActionMenu
 var message_label: Label
@@ -211,19 +221,51 @@ func _basic_attack_move() -> MoveData:
 	move.accuracy = BASIC_ATTACK_ACCURACY
 	return move
 
+## The locked 5-factor damage formula (Kamimon_Design_Notes/050 Combat.md,
+## LOCKED 2026-08-30): pow x levelFactor x statFactor x gearFactor x
+## typeMult. Every factor besides pow and typeMult is a bounded
+## cap^normalized-advantage ratio — diminishing returns approaching the cap,
+## never exceeding it. Returns the rounded damage plus type_mult (for the
+## super/not-very-effective message below); _resolve_attack still applies
+## post-formula hit-variance and guard halving itself, same as before this
+## migration.
+func _compute_damage(attacker: Combatant, defender: Combatant, move: MoveData) -> Dictionary:
+	var gap: float = attacker.data.level - defender.data.level
+	var level_factor: float = pow(LEVEL_CAP, tanh(gap / LEVEL_STEEPNESS))
+
+	var atk: float = attacker.data.attack
+	var def: float = defender.data.defense
+	var stat_factor: float = 1.0
+	if atk + def > 0.0:
+		stat_factor = pow(STAT_CAP, (atk - def) / (atk + def))
+
+	var equip_a: float = attacker.data.equip_power()
+	var equip_d: float = defender.data.equip_power()
+	var gear_factor: float = pow(GEAR_CAP, (equip_a - equip_d) / (equip_a + equip_d + 2.0))
+
+	var t := TypeResolution.derive_type_factors(move.domains, attacker.data.domains, defender.data.domains)
+	var type_mult: float = 1.0 + TYPE_SCALE * (t.stab_pct + t.weak_pct - t.resist_pct)
+
+	var raw_damage: float = move.power * level_factor * stat_factor * gear_factor * type_mult
+	return {"damage": max(1, int(round(raw_damage))), "type_mult": type_mult}
+
 func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -> void:
 	if randf() > move.accuracy:
 		message_label.text = "%s used %s, but it missed!" % [attacker.data.display_name, move.display_name]
 		return
-	# Flat power vs. defense goes here until the Domain type chart is wired in.
-	var raw: int = attacker.data.attack + move.power - defender.data.defense
-	var damage := int(max(1, raw) * randf_range(0.9, 1.1))
+	var result := _compute_damage(attacker, defender, move)
+	var damage: int = max(1, int(result.damage * randf_range(0.9, 1.1)))
 	if defender.is_defending:
 		damage = max(1, int(damage * 0.5))
 	defender.apply_damage(damage)
 	message_label.text = "%s used %s! It dealt %d damage to %s." % [
 		attacker.data.display_name, move.display_name, damage, defender.data.display_name
 	]
+	var type_mult: float = result.type_mult
+	if type_mult > 1.0:
+		message_label.text += " It's super effective!"
+	elif type_mult < 1.0:
+		message_label.text += " It's not very effective..."
 	if defender.is_downed():
 		message_label.text += " %s is downed!" % defender.data.display_name
 	_refresh_hud()

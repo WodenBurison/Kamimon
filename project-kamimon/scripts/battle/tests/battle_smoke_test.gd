@@ -6,7 +6,8 @@ extends SceneTree
 ## Drives BattleScene.tscn through its real signal wiring (button.pressed.emit()
 ## on the actual Button nodes, not private-method calls) wherever the check is
 ## about UI wiring, and pokes Combatant/BattleManager state directly wherever
-## the check is about game logic (damage math, downed exclusion, win/loss).
+## the check is about game logic (damage math, downed exclusion, win/loss,
+## Domain effectiveness).
 ##
 ## Caveat: emitting a Button's `pressed` signal directly bypasses its
 ## `disabled` flag (that only blocks real input events, not a scripted
@@ -29,8 +30,11 @@ func _run_tests() -> void:
 	await _test_assigned_move_hits()
 	await _test_downed_excluded_from_targets()
 	_test_guard_halves_damage()
+	_test_domain_effectiveness()
 	await _test_win_detection()
 	await _test_run_flees()
+	await _test_level_gap_affects_damage()
+	await _test_gear_affects_damage()
 
 	print("\n=== %d passed, %d failed ===" % [_pass_count, _fail_count])
 	quit(0 if _fail_count == 0 else 1)
@@ -200,6 +204,140 @@ func _test_guard_halves_damage() -> void:
 	)
 
 	battle.queue_free()
+
+## Verifies DomainChart is actually plugged into _resolve_attack, using the
+## real locked graph: Tide beats Flame (super-effective), Flame beats
+## Verdant (so a Verdant-domain move into a Flame-domain defender is
+## not-very-effective).
+func _test_domain_effectiveness() -> void:
+	var attacker := _new_combatant("TestAttacker", 100, 20, 5, 10)
+	# No domains set on the attacker deliberately — isolates this test to
+	# weakness/resistance (defender-side) only, no stab in the mix.
+
+	var move_neutral := MoveData.new()
+	move_neutral.display_name = "NeutralStrike"
+	move_neutral.power = 20
+	move_neutral.accuracy = 1.0
+	move_neutral.domains = []
+
+	var move_super := MoveData.new()
+	move_super.display_name = "TideStrike"
+	move_super.power = 20
+	move_super.accuracy = 1.0
+	move_super.domains = ["Tide"]
+
+	var move_weak := MoveData.new()
+	move_weak.display_name = "VerdantStrike"
+	move_weak.power = 20
+	move_weak.accuracy = 1.0
+	move_weak.domains = ["Verdant"]
+
+	var battle := _load_battle()
+	await process_frame
+
+	var defender_neutral := _new_combatant("FlameDefenderA", 300, 10, 5, 10)
+	defender_neutral.data.domains = ["Flame", "", "", ""]
+	var defender_super := _new_combatant("FlameDefenderB", 300, 10, 5, 10)
+	defender_super.data.domains = ["Flame", "", "", ""]
+	var defender_weak := _new_combatant("FlameDefenderC", 300, 10, 5, 10)
+	defender_weak.data.domains = ["Flame", "", "", ""]
+
+	seed(99)
+	battle._resolve_attack(attacker, defender_neutral, move_neutral)
+	var neutral_damage := 300 - defender_neutral.current_hp
+
+	seed(99)
+	battle._resolve_attack(attacker, defender_super, move_super)
+	var super_damage := 300 - defender_super.current_hp
+
+	seed(99)
+	battle._resolve_attack(attacker, defender_weak, move_weak)
+	var weak_damage := 300 - defender_weak.current_hp
+
+	_check(
+		"Tide move vs Flame defender is super-effective (%d > %d neutral)" % [super_damage, neutral_damage],
+		super_damage > neutral_damage
+	)
+	_check(
+		"Verdant move vs Flame defender is not-very-effective (%d < %d neutral)" % [weak_damage, neutral_damage],
+		weak_damage < neutral_damage
+	)
+
+	battle.queue_free()
+
+## New 2026-08-31: verifies levelFactor is actually wired into
+## _resolve_attack now that MonsterData carries a real level field — same
+## power/stats/domains on both sides, only level differs, so any damage
+## difference has to come from the level-gap term.
+func _test_level_gap_affects_damage() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var move := MoveData.new()
+	move.display_name = "TestStrike"
+	move.power = 20
+	move.accuracy = 1.0
+
+	var low_attacker := _new_combatant("LowLevelAttacker", 100, 20, 10, 10)
+	low_attacker.data.level = 5
+	var high_attacker := _new_combatant("HighLevelAttacker", 100, 20, 10, 10)
+	high_attacker.data.level = 20
+
+	var defender_a := _new_combatant("DefenderA", 300, 10, 10, 10)
+	defender_a.data.level = 10
+	var defender_b := _new_combatant("DefenderB", 300, 10, 10, 10)
+	defender_b.data.level = 10
+
+	seed(42)
+	battle._resolve_attack(low_attacker, defender_a, move)
+	var low_level_damage := 300 - defender_a.current_hp
+
+	seed(42)
+	battle._resolve_attack(high_attacker, defender_b, move)
+	var high_level_damage := 300 - defender_b.current_hp
+
+	_check(
+		"higher attacker level deals more damage at equal stats (%d > %d)" % [high_level_damage, low_level_damage],
+		high_level_damage > low_level_damage
+	)
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-08-31: verifies the equipment skeleton's equip_power()/
+## gearFactor plumbing actually affects damage, using the 3-slot array
+## directly (no real gear items exist yet, see MonsterData.equipped_gear).
+func _test_gear_affects_damage() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var move := MoveData.new()
+	move.display_name = "TestStrike"
+	move.power = 20
+	move.accuracy = 1.0
+
+	var geared_attacker := _new_combatant("GearedAttacker", 100, 20, 10, 10)
+	geared_attacker.data.equipped_gear = [5.0, 5.0, 5.0]
+	var plain_attacker := _new_combatant("PlainAttacker", 100, 20, 10, 10)
+
+	var defender_a := _new_combatant("DefenderA", 300, 10, 10, 10)
+	var defender_b := _new_combatant("DefenderB", 300, 10, 10, 10)
+
+	seed(7)
+	battle._resolve_attack(geared_attacker, defender_a, move)
+	var geared_damage := 300 - defender_a.current_hp
+
+	seed(7)
+	battle._resolve_attack(plain_attacker, defender_b, move)
+	var plain_damage := 300 - defender_b.current_hp
+
+	_check(
+		"equipped gear deals more damage than none, equal stats (%d > %d)" % [geared_damage, plain_damage],
+		geared_damage > plain_damage
+	)
+
+	battle.queue_free()
+	await process_frame
 
 func _test_win_detection() -> void:
 	var battle := _load_battle()
