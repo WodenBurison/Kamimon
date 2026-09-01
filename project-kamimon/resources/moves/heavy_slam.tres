@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MoveData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="1_q2s26"]
+
+[resource]
+script = ExtResource("1_q2s26")
+display_name = "Heavy Slam"
+power = 20
+accuracy = 0.75

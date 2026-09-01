@@ -14,12 +14,17 @@ class_name MonsterData
 ## exists — likely a new MonsterInstance-style wrapper around a shared
 ## MonsterData species template plus level/gear/matrix-progress.
 ##
-## `moves` is this monster's out-of-battle-assigned active loadout — up to
-## three moves the player picks outside of battle. It is not the monster's
-## full learned movepool (no move-matrix/learning system exists yet, so for
-## now the assigned loadout and the learned set are the same thing). Attack
-## and Guard are separate universal baseline actions every monster has
-## regardless of this list, so they aren't included here.
+## `assigned_moves` (renamed from `moves` 2026-09-01) is this monster's
+## out-of-battle-assigned active loadout -- up to three moves used in
+## battle, out of everything it actually knows. `move_pool` is the full
+## learned set the player can swap those three from outside of battle --
+## always empty for now (no move-matrix/learning system or swap UI exists
+## yet, so there's nothing to populate it with; every placeholder monster's
+## 3 assigned moves ARE its entire current movepool in practice, same as
+## before this rename, just now with an explicit empty pool alongside them
+## rather than conflating "assigned" and "known"). Attack and Guard are
+## separate universal baseline actions every monster has regardless of
+## either list, so they aren't included in it.
 ##
 ## `domains` is this monster's RANKED Domain list — Primary/Secondary/
 ## Tertiary/Last, matching the locked Combat.md rank percentages (40/30/20/
@@ -44,6 +49,20 @@ class_name MonsterData
 ## (the current state, since no gear exists to assign) makes gearFactor
 ## resolve to a neutral 1.0x, so this is safe to wire in now without
 ## affecting any existing battle balance.
+##
+## `accuracy`/`evasion`/`crit_stat` are the three background stats from the
+## locked Stat system design (050 Combat.md, 2026-08-31) — deliberately not
+## on the visible stat menu, and not fed raw into hit/crit rolls (that broke
+## at level extremes per the design doc). BattleManager instead uses them to
+## nudge a move's own accuracy and a small baseline crit chance via the same
+## bounded cap^ratio shape as the rest of the damage formula, both hard-
+## clamped. Default 10.0 on all three matches the placeholder scale the
+## other small-int stats already use, and — because BattleManager's crit
+## formula compares against a matching reference constant — two default-
+## stat monsters reproduce the exact pre-background-stat behavior (modifier
+## == 1.0, crit chance == the flat baseline). Exact baseline rates/caps are
+## still open per the design doc; see the constants at the top of
+## battle_manager.gd for what's currently a placeholder pick vs. locked.
 
 const DOMAIN_SLOTS := 4
 const GEAR_SLOTS := 3
@@ -56,8 +75,12 @@ const GEAR_SLOTS := 3
 @export var level: int = 5
 @export var domains: Array[String] = ["", "", "", ""]
 @export var equipped_gear: Array[float] = [0.0, 0.0, 0.0]
+@export var accuracy: float = 10.0
+@export var evasion: float = 10.0
+@export var crit_stat: float = 10.0
 @export var battler_sprite: Texture2D
-@export var moves: Array[MoveData] = []
+@export var assigned_moves: Array[MoveData] = []
+@export var move_pool: Array[MoveData] = []
 
 func equip_power() -> float:
 	var total := 0.0

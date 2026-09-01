@@ -35,6 +35,14 @@ func _run_tests() -> void:
 	await _test_run_flees()
 	await _test_level_gap_affects_damage()
 	await _test_gear_affects_damage()
+	await _test_evasion_reduces_hit_chance()
+	await _test_crit_stat_raises_crit_chance()
+	await _test_crit_can_multiply_damage()
+	await _test_stat_modifier_changes_effective_stat_and_damage()
+	await _test_move_effect_applies_stat_modifier_to_defender()
+	_test_stat_modifier_expires_after_duration()
+	await _test_multi_hit_effect_deals_multiple_hits()
+	await _test_resolve_multi_target_attack_hits_all_living_targets()
 
 	print("\n=== %d passed, %d failed ===" % [_pass_count, _fail_count])
 	quit(0 if _fail_count == 0 else 1)
@@ -78,7 +86,7 @@ func _test_scene_loads_and_menu_opens() -> void:
 	_check("action menu is visible", battle.action_menu.visible)
 	_check("root menu is showing", battle.action_menu.root_menu_scroll.visible)
 
-	var moves := actor.data.moves
+	var moves := actor.data.assigned_moves
 	_check("move1 label matches assigned move", battle.action_menu.move1_button.text == moves[0].display_name)
 	_check("move2 label matches assigned move", battle.action_menu.move2_button.text == moves[1].display_name)
 	_check("move3 label matches assigned move", battle.action_menu.move3_button.text == moves[2].display_name)
@@ -338,6 +346,275 @@ func _test_gear_affects_damage() -> void:
 
 	battle.queue_free()
 	await process_frame
+
+## New 2026-08-31: verifies BattleManager._compute_hit_chance actually
+## reads Accuracy/Evasion (background stats, see MonsterData doc comment) —
+## a defender with much higher Evasion than the attacker's Accuracy should
+## get a lower hit chance than an equal-evasion defender, but never below
+## the MIN_HIT_CHANCE floor. Tests the pure formula directly (like
+## _compute_damage) rather than over many random trials, since the formula
+## itself is deterministic.
+func _test_evasion_reduces_hit_chance() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var move := MoveData.new()
+	move.display_name = "TestStrike"
+	move.accuracy = 0.9
+
+	var attacker := _new_combatant("Attacker", 100, 20, 10, 10)
+	var low_evasion_defender := _new_combatant("LowEva", 100, 10, 10, 10)
+	var high_evasion_defender := _new_combatant("HighEva", 100, 10, 10, 10)
+	high_evasion_defender.data.evasion = 40.0
+
+	var low_eva_chance: float = battle._compute_hit_chance(attacker, low_evasion_defender, move)
+	var high_eva_chance: float = battle._compute_hit_chance(attacker, high_evasion_defender, move)
+
+	_check(
+		"higher defender evasion lowers hit chance (%.3f < %.3f)" % [high_eva_chance, low_eva_chance],
+		high_eva_chance < low_eva_chance
+	)
+	_check("hit chance never drops below the MIN_HIT_CHANCE floor", high_eva_chance >= battle.MIN_HIT_CHANCE)
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-08-31: verifies BattleManager._compute_crit_chance actually
+## reads the attacker's Crit stat, and that a default-stat monster (equal to
+## CRIT_STAT_REFERENCE) lands exactly on BASE_CRIT_CHANCE — i.e. this is a
+## true no-op for every existing test that doesn't set crit_stat.
+func _test_crit_stat_raises_crit_chance() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var default_attacker := _new_combatant("DefaultCrit", 100, 20, 10, 10)
+	var high_crit_attacker := _new_combatant("HighCrit", 100, 20, 10, 10)
+	high_crit_attacker.data.crit_stat = 40.0
+
+	var default_chance: float = battle._compute_crit_chance(default_attacker)
+	var high_chance: float = battle._compute_crit_chance(high_crit_attacker)
+
+	_check(
+		"default crit stat matches the flat baseline exactly (%.4f == %.4f)" % [default_chance, battle.BASE_CRIT_CHANCE],
+		is_equal_approx(default_chance, battle.BASE_CRIT_CHANCE)
+	)
+	_check(
+		"higher crit stat raises crit chance (%.3f > %.3f)" % [high_chance, default_chance],
+		high_chance > default_chance
+	)
+	_check("crit chance never exceeds the hard clamp", high_chance <= battle.MAX_CRIT_CHANCE)
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-08-31: integration check that a landed crit actually multiplies
+## real damage through _resolve_attack (not just that the chance formula
+## moves, per the test above). A crit-stat-maxed attacker's chance is well
+## under 100%%, so this checks across 40 independently seeded trials rather
+## than asserting on one — with the constants above that's a well under
+## 1-in-a-million chance of a false failure, while still being a real
+## end-to-end check through the same code path battles use.
+func _test_crit_can_multiply_damage() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var move := MoveData.new()
+	move.display_name = "TestStrike"
+	move.power = 20
+	move.accuracy = 1.0
+
+	var attacker := _new_combatant("CritAttacker", 100, 20, 10, 10)
+	attacker.data.crit_stat = 1000.0
+
+	var probe_defender := _new_combatant("Probe", 500, 10, 10, 10)
+	var base_result: Dictionary = battle._compute_damage(attacker, probe_defender, move)
+	# Anything above base x the top of the 0.9-1.1 variance band had to come
+	# from the crit multiplier, not ordinary variance.
+	var non_crit_ceiling: int = int(base_result.damage * 1.1)
+
+	var saw_crit := false
+	for i in range(40):
+		var trial_defender := _new_combatant("Trial%d" % i, 500, 10, 10, 10)
+		seed(i)
+		battle._resolve_attack(attacker, trial_defender, move)
+		var dealt := 500 - trial_defender.current_hp
+		if dealt > non_crit_ceiling:
+			saw_crit = true
+			break
+
+	_check("a high crit-stat attacker lands at least one crit over 40 seeded trials", saw_crit)
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-09-01: verifies Combatant.apply_stat_modifier actually lowers
+## effective_defense() and that the lowered value flows through into
+## _compute_damage - a debuffed defender should take more damage than an
+## unmodified one at otherwise-identical stats. Pure/deterministic, no RNG
+## involved (unlike the move-effect trigger tests below).
+func _test_stat_modifier_changes_effective_stat_and_damage() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var move := MoveData.new()
+	move.display_name = "TestStrike"
+	move.power = 20
+
+	var attacker := _new_combatant("Attacker", 100, 20, 10, 10)
+	var plain_defender := _new_combatant("PlainDefender", 100, 10, 10, 10)
+	var debuffed_defender := _new_combatant("DebuffedDefender", 100, 10, 10, 10)
+	debuffed_defender.apply_stat_modifier("Defense", -1, 3)
+
+	_check(
+		"a -1 Defense stage lowers effective_defense() below the base stat (%.2f < %d)" % [debuffed_defender.effective_defense(), 10],
+		debuffed_defender.effective_defense() < 10.0
+	)
+
+	var plain_result: Dictionary = battle._compute_damage(attacker, plain_defender, move)
+	var debuffed_result: Dictionary = battle._compute_damage(attacker, debuffed_defender, move)
+	_check(
+		"a defense-debuffed defender takes more computed damage (%d > %d)" % [debuffed_result.damage, plain_result.damage],
+		debuffed_result.damage > plain_result.damage
+	)
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-09-01 (rewritten same day for the MoveEffect refactor):
+## verifies a MoveEffect in a move's `effects` array actually applies
+## through _resolve_attack -- StatModifierEffect.chance forced to 1.0 for
+## determinism (the chance roll itself is just a single randf() call, not
+## worth testing separately). Also confirms a move with effects == []
+## leaves the defender's stat_modifiers untouched, so the whole mechanic is
+## a true no-op for every other move/test in this file.
+func _test_move_effect_applies_stat_modifier_to_defender() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var debuff_effect := StatModifierEffect.new()
+	debuff_effect.stat = "Defense"
+	debuff_effect.stages = -1
+	debuff_effect.chance = 1.0
+	debuff_effect.duration = 3
+
+	var debuff_move := MoveData.new()
+	debuff_move.display_name = "AcidSplash"
+	debuff_move.power = 10
+	debuff_move.accuracy = 1.0
+	debuff_move.effects = [debuff_effect]
+
+	var plain_move := MoveData.new()
+	plain_move.display_name = "TestStrike"
+	plain_move.power = 10
+	plain_move.accuracy = 1.0
+
+	var attacker := _new_combatant("Attacker", 100, 20, 10, 10)
+	var defender_a := _new_combatant("DefenderA", 100, 10, 10, 10)
+	var defender_b := _new_combatant("DefenderB", 100, 10, 10, 10)
+
+	battle._resolve_attack(attacker, defender_a, debuff_move)
+	_check("a guaranteed-trigger effect adds an entry to the defender's stat_modifiers", defender_a.stat_modifiers.has("Defense"))
+	_check("the applied stage matches the effect's stages", defender_a.stat_modifiers.get("Defense", {}).get("stages") == -1)
+
+	battle._resolve_attack(attacker, defender_b, plain_move)
+	_check("a move with no effects leaves the defender's stat_modifiers empty", defender_b.stat_modifiers.is_empty())
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-09-01: verifies MultiHitEffect actually makes _resolve_attack
+## hit multiple times -- a fixed-range (3-3, no randomness to fight) multi-
+## hit move against a plain single-hit move of identical power should deal
+## roughly 3x the damage (not exactly, since each hit rolls its own 0.9-1.1
+## variance independently -- checked with a wide tolerance band, not an
+## exact multiple).
+func _test_multi_hit_effect_deals_multiple_hits() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var triple_hit := MultiHitEffect.new()
+	triple_hit.min_hits = 3
+	triple_hit.max_hits = 3
+
+	var multi_move := MoveData.new()
+	multi_move.display_name = "TripleStrike"
+	multi_move.power = 10
+	multi_move.accuracy = 1.0
+	multi_move.effects = [triple_hit]
+
+	var single_move := MoveData.new()
+	single_move.display_name = "TestStrike"
+	single_move.power = 10
+	single_move.accuracy = 1.0
+
+	var attacker := _new_combatant("Attacker", 100, 20, 10, 10)
+	var multi_defender := _new_combatant("MultiDefender", 300, 10, 10, 10)
+	var single_defender := _new_combatant("SingleDefender", 300, 10, 10, 10)
+
+	battle._resolve_attack(attacker, multi_defender, multi_move)
+	var multi_damage := 300 - multi_defender.current_hp
+
+	battle._resolve_attack(attacker, single_defender, single_move)
+	var single_damage := 300 - single_defender.current_hp
+
+	_check(
+		"a 3-hit move deals noticeably more total damage than a 1-hit move of equal power (%d > %d)" % [multi_damage, single_damage],
+		multi_damage > single_damage * 2
+	)
+
+	# A target downed partway through a multi-hit sequence should stop the
+	# remaining hits, not deal damage to an already-downed combatant.
+	var frail_defender := _new_combatant("FrailDefender", 5, 10, 10, 10)
+	battle._resolve_attack(attacker, frail_defender, multi_move)
+	_check("a multi-hit move downs a frail target and stops there", frail_defender.is_downed())
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-09-01: verifies resolve_multi_target_attack hits every living
+## target and skips downed ones, using MultiTargetEffect-tagged move (the
+## effect itself doesn't drive this helper -- it's called directly, same as
+## MultiTargetEffect's own doc comment explains the action menu doesn't
+## consult target_mode() yet).
+func _test_resolve_multi_target_attack_hits_all_living_targets() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var aoe := MultiTargetEffect.new()
+	var move := MoveData.new()
+	move.display_name = "Sweep"
+	move.power = 15
+	move.accuracy = 1.0
+	move.effects = [aoe]
+	_check("MultiTargetEffect reports target_mode all_enemies", aoe.target_mode() == "all_enemies")
+
+	var attacker := _new_combatant("Attacker", 100, 20, 10, 10)
+	var target_a := _new_combatant("TargetA", 100, 10, 10, 10)
+	var target_b := _new_combatant("TargetB", 100, 10, 10, 10)
+	var already_downed := _new_combatant("AlreadyDowned", 100, 10, 10, 10)
+	already_downed.apply_damage(9999)
+
+	var targets: Array[Combatant] = [target_a, target_b, already_downed]
+	battle.resolve_multi_target_attack(attacker, targets, move)
+
+	_check("target A took damage from the AoE sweep", target_a.current_hp < 100)
+	_check("target B took damage from the AoE sweep", target_b.current_hp < 100)
+	_check("an already-downed target is skipped, not attacked again", already_downed.current_hp == 0)
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-09-01: verifies tick_stat_modifiers() actually decays and
+## removes an expired modifier, and that Combatant.effective_defense()
+## returns to the unmodified base stat once it's gone.
+func _test_stat_modifier_expires_after_duration() -> void:
+	var defender := _new_combatant("Defender", 100, 10, 10, 10)
+	defender.apply_stat_modifier("Defense", -1, 1)
+	_check("modifier is active immediately after being applied", defender.stat_modifiers.has("Defense"))
+
+	defender.tick_stat_modifiers()
+	_check("a 1-turn modifier is gone after a single tick", not defender.stat_modifiers.has("Defense"))
+	_check("effective_defense() returns to the base stat once the modifier expires", defender.effective_defense() == 10.0)
 
 func _test_win_detection() -> void:
 	var battle := _load_battle()

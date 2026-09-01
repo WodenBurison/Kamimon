@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="1_nhxo6"]
+[ext_resource type="Resource" path="res://resources/moves/tackle.tres" id="2_w62nf"]
+[ext_resource type="Resource" path="res://resources/moves/heavy_slam.tres" id="3_soy0k"]
+[ext_resource type="Resource" path="res://resources/moves/ember_burst.tres" id="4_qtmoc"]
+[ext_resource type="Texture2D" path="res://assets/placeholder_My_mon_back_sprite.png" id="5_54lk2"]
+[ext_resource type="Script" path="res://scripts/data/monster_data.gd" id="6_0qr1n"]
+
+[resource]
+script = ExtResource("6_0qr1n")
+display_name = "Emberkit"
+max_hp = 90
+attack = 14
+defense = 8
+speed = 16
+domains = Array[String](["Flame", "", "", ""])
+battler_sprite = ExtResource("5_54lk2")
+assigned_moves = Array[ExtResource("1_nhxo6")]([ExtResource("2_w62nf"), ExtResource("3_soy0k"), ExtResource("4_qtmoc")])

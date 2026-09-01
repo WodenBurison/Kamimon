@@ -43,7 +43,7 @@ static func _make_monster(
 	monster.speed = spd
 	monster.domains = [primary_domain, "", "", ""]
 	monster.battler_sprite = load(sprite_path)
-	monster.moves = moves
+	monster.assigned_moves = moves
 	return monster
 
 ## Four mons with deliberately different speed values so the ATB fill-rate

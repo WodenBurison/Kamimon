@@ -1,15 +1,33 @@
 extends RefCounted
 class_name Combatant
 ## Wraps a MonsterData definition with the mutable state it needs for one
-## battle: current HP, ATB gauge fill, and whether it's currently guarding.
-## MonsterData never changes during a fight; this does.
+## battle: current HP, ATB gauge fill, whether it's currently guarding, and
+## (new 2026-09-01) temporary in-battle stat "stage" modifiers from move
+## effects (see MoveData's effect_* fields doc comment). MonsterData never
+## changes during a fight; this does.
 
 const ATB_MAX := 100.0
+
+## Stage step/cap for the new stat-modifier mechanic -- deliberately small
+## and hard-clamped to stay "mellow" in the spirit of the rest of the
+## combat formula, but these exact numbers are Claude's placeholder pick
+## (not yet reviewed by Woden), same status as battle_manager.gd's
+## GEAR_CAP/ACC_EVA_CAP. +/-3 stages at 15%% each caps the swing at
+## roughly 0.55x-1.45x.
+const STAGE_STEP := 0.15
+const MAX_STAGE := 3
 
 var data: MonsterData
 var current_hp: int
 var atb_gauge: float = 0.0
 var is_defending: bool = false
+
+## Keyed by stat name ("Attack"/"Defense"/"Speed"/"Accuracy"/"Evasion"/
+## "CritStat"), value {"stages": int, "turns_left": int}. Absent key means
+## no active modifier on that stat -- the common case, and a fresh
+## Combatant always starts with this empty, so effective_*() is an exact
+## no-op until something actually applies a modifier.
+var stat_modifiers: Dictionary = {}
 
 func _init(monster_data: MonsterData) -> void:
 	data = monster_data
@@ -25,13 +43,14 @@ func is_downed() -> bool:
 func is_ready() -> bool:
 	return atb_gauge >= ATB_MAX
 
-## Gauge fill rate is just speed for now. A real formula (level, status
-## effects, equipment, etc.) goes here later without touching anything that
-## calls this.
+## Gauge fill rate is speed, now stat-modifier-aware (2026-09-01) -- a
+## Speed debuff genuinely slows turn frequency, not just damage math. A
+## fuller formula (level, equipment, etc.) can still layer on top of this
+## later without touching anything that calls this.
 func tick(delta: float) -> void:
 	if is_downed():
 		return
-	atb_gauge = min(atb_gauge + data.speed * delta, ATB_MAX)
+	atb_gauge = min(atb_gauge + effective_speed() * delta, ATB_MAX)
 
 func reset_gauge() -> void:
 	atb_gauge = 0.0
@@ -53,3 +72,51 @@ func atb_ratio() -> float:
 
 func hp_ratio() -> float:
 	return float(current_hp) / float(data.max_hp)
+
+## Adds `stages` to whatever's already active on `stat_name` (clamped to
+## +/-MAX_STAGE, so repeated debuffs can't stack without bound), refreshes
+## the duration to `duration` turns. A move applying, say, -1 Defense onto
+## an already -2'd target lands at -3 (the clamp), not -6 -- deliberately
+## not additive-unbounded, matching the "mellow curve" philosophy
+## elsewhere in this combat system.
+func apply_stat_modifier(stat_name: String, stages: int, duration: int) -> void:
+	var current_stages: int = 0
+	if stat_modifiers.has(stat_name):
+		current_stages = stat_modifiers[stat_name]["stages"]
+	var new_stages: int = clamp(current_stages + stages, -MAX_STAGE, MAX_STAGE)
+	stat_modifiers[stat_name] = {"stages": new_stages, "turns_left": duration}
+
+func _stage_multiplier(stat_name: String) -> float:
+	if not stat_modifiers.has(stat_name):
+		return 1.0
+	return 1.0 + STAGE_STEP * stat_modifiers[stat_name]["stages"]
+
+func effective_attack() -> float:
+	return data.attack * _stage_multiplier("Attack")
+
+func effective_defense() -> float:
+	return data.defense * _stage_multiplier("Defense")
+
+func effective_speed() -> float:
+	return data.speed * _stage_multiplier("Speed")
+
+func effective_accuracy() -> float:
+	return data.accuracy * _stage_multiplier("Accuracy")
+
+func effective_evasion() -> float:
+	return data.evasion * _stage_multiplier("Evasion")
+
+func effective_crit_stat() -> float:
+	return data.crit_stat * _stage_multiplier("CritStat")
+
+## Called from BattleManager._start_turn, the same hook that already clears
+## Guard -- decays every active modifier by one of THIS combatant's own
+## turns, dropping it once it hits zero.
+func tick_stat_modifiers() -> void:
+	for stat_name in stat_modifiers.keys().duplicate():
+		var entry: Dictionary = stat_modifiers[stat_name]
+		entry["turns_left"] -= 1
+		if entry["turns_left"] <= 0:
+			stat_modifiers.erase(stat_name)
+		else:
+			stat_modifiers[stat_name] = entry

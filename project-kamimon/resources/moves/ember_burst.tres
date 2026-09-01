@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="MoveData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="1_8yh76"]
+[ext_resource type="Script" path="res://scripts/data/move_effect.gd" id="1_nm0wj"]
+[ext_resource type="Script" path="res://scripts/data/effects/stat_modifier_effect.gd" id="2_1bv8t"]
+
+[sub_resource type="Resource" id="Resource_clmf3"]
+script = ExtResource("2_1bv8t")
+stat = "Defense"
+chance = 0.1
+
+[resource]
+script = ExtResource("1_8yh76")
+display_name = "Ember Burst"
+power = 16
+accuracy = 0.85
+domains = Array[String](["Flame"])
+effects = Array[ExtResource("1_nm0wj")]([SubResource("Resource_clmf3")])

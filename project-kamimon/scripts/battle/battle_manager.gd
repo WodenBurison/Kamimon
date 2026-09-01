@@ -43,6 +43,28 @@ const STAT_CAP := 2.5
 const GEAR_CAP := 1.5
 const TYPE_SCALE := 1.0
 
+## Background-stat (Accuracy/Evasion/Crit) constants (LOCKED shape
+## 2026-08-31 per 050 Combat.md: baseline x smallCap^normalized-advantage,
+## hard-clamped so nothing is ever guaranteed). The design doc only locked
+## the shape, not these numbers — placeholders, same spirit as GEAR_CAP.
+## ACC_EVA_CAP is deliberately tight (roughly a +/-20% swing on a move's own
+## accuracy): the intent captured here is "stat gaps can't turn an already-
+## risky move into a coinflip or a lock," not "no move can ever be
+## reliable" — a move authored with accuracy 1.0 (e.g. the basic Attack)
+## stays effectively guaranteed against equal-or-lower evasion, which is why
+## the ceiling isn't clamped below 1.0. MIN_HIT_CHANCE is the actual "no
+## guaranteed miss" floor. CRIT_STAT_REFERENCE stands in for an opposing
+## "crit resist" stat, since the locked design doesn't define one — a
+## monster with exactly the reference value crits at exactly
+## BASE_CRIT_CHANCE, which is also every placeholder monster's default.
+const ACC_EVA_CAP := 1.2
+const MIN_HIT_CHANCE := 0.5
+const BASE_CRIT_CHANCE := 0.05
+const CRIT_CAP := 6.0
+const CRIT_STAT_REFERENCE := 10.0
+const MAX_CRIT_CHANCE := 0.5
+const CRIT_DAMAGE_MULT := 1.5
+
 var hud: BattleHUD
 var action_menu: BattleActionMenu
 var message_label: Label
@@ -128,6 +150,7 @@ func _start_turn(actor: Combatant) -> void:
 		return
 	actor.reset_gauge()
 	actor.clear_guard()
+	actor.tick_stat_modifiers()
 	_current_actor = actor
 	if actor in player_party:
 		_start_player_turn(actor)
@@ -137,7 +160,7 @@ func _start_turn(actor: Combatant) -> void:
 func _start_player_turn(actor: Combatant) -> void:
 	state = State.PLAYER_INPUT
 	message_label.text = "%s is ready to act!" % actor.data.display_name
-	action_menu.open(actor.data.moves, _party_status(player_party), _party_status(enemy_party))
+	action_menu.open(actor.data.assigned_moves, _party_status(player_party), _party_status(enemy_party))
 
 func _party_status(party: Array[Combatant]) -> Array[Dictionary]:
 	var status: Array[Dictionary] = []
@@ -158,7 +181,7 @@ func _on_attack_selected(target_index: int) -> void:
 func _on_move_selected(move_index: int, target_index: int) -> void:
 	if state != State.PLAYER_INPUT:
 		return
-	var moves := _current_actor.data.moves
+	var moves := _current_actor.data.assigned_moves
 	if move_index < 0 or move_index >= moves.size():
 		return
 	_resolve_player_action(moves[move_index], target_index)
@@ -202,7 +225,7 @@ func _start_enemy_turn(actor: Combatant) -> void:
 	var targets := _living(player_party)
 	if not targets.is_empty():
 		var target: Combatant = targets[randi() % targets.size()]
-		var moves := actor.data.moves
+		var moves := actor.data.assigned_moves
 		var move: MoveData = moves[randi() % moves.size()] if not moves.is_empty() else _basic_attack_move()
 		_resolve_attack(actor, target, move)
 	_after_action()
@@ -233,8 +256,8 @@ func _compute_damage(attacker: Combatant, defender: Combatant, move: MoveData) -
 	var gap: float = attacker.data.level - defender.data.level
 	var level_factor: float = pow(LEVEL_CAP, tanh(gap / LEVEL_STEEPNESS))
 
-	var atk: float = attacker.data.attack
-	var def: float = defender.data.defense
+	var atk: float = attacker.effective_attack()
+	var def: float = defender.effective_defense()
 	var stat_factor: float = 1.0
 	if atk + def > 0.0:
 		stat_factor = pow(STAT_CAP, (atk - def) / (atk + def))
@@ -249,18 +272,93 @@ func _compute_damage(attacker: Combatant, defender: Combatant, move: MoveData) -
 	var raw_damage: float = move.power * level_factor * stat_factor * gear_factor * type_mult
 	return {"damage": max(1, int(round(raw_damage))), "type_mult": type_mult}
 
+## Background-stat hit-chance modifier (LOCKED shape 2026-08-31): nudges a
+## move's own accuracy up or down by attacker Accuracy vs defender Evasion,
+## same bounded cap^ratio shape as the rest of the formula, then floors it
+## so no matchup can ever guarantee a miss. See the ACC_EVA_CAP doc comment
+## above for why the ceiling isn't similarly restrictive.
+func _compute_hit_chance(attacker: Combatant, defender: Combatant, move: MoveData) -> float:
+	var acc: float = attacker.effective_accuracy()
+	var eva: float = defender.effective_evasion()
+	var ratio: float = 0.0
+	if acc + eva > 0.0:
+		ratio = (acc - eva) / (acc + eva)
+	var modifier: float = pow(ACC_EVA_CAP, ratio)
+	return clamp(move.accuracy * modifier, MIN_HIT_CHANCE, 1.0)
+
+## Background-stat crit-chance (LOCKED shape 2026-08-31, same cap^ratio
+## family). No opposing "crit resist" stat exists in the locked design, so
+## the attacker's Crit stat is compared against CRIT_STAT_REFERENCE instead
+## of a defender stat. Hard-clamped so a crit is never guaranteed.
+func _compute_crit_chance(attacker: Combatant) -> float:
+	var stat: float = attacker.effective_crit_stat()
+	var ratio: float = 0.0
+	if stat + CRIT_STAT_REFERENCE > 0.0:
+		ratio = (stat - CRIT_STAT_REFERENCE) / (stat + CRIT_STAT_REFERENCE)
+	var modifier: float = pow(CRIT_CAP, ratio)
+	return clamp(BASE_CRIT_CHANCE * modifier, 0.0, MAX_CRIT_CHANCE)
+
+## Top-level single-target entry point (2026-09-01 refactor): resolves the
+## move's normal single-hit resolution against `defender` once per
+## MultiHitEffect.hit_count() (1 for every move without one -- see
+## MoveEffect's doc comment), stopping early if `defender` goes down
+## partway through since there's nothing left to hit. For a move whose
+## effects include a MultiTargetEffect, this only ever resolves against the
+## one `defender` passed in -- use resolve_multi_target_attack() below for
+## the "hit everyone" case instead (nothing currently calls it
+## automatically from target_mode(), see MultiTargetEffect's doc comment).
 func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -> void:
-	if randf() > move.accuracy:
+	var hits := _hit_count(move)
+	for i in hits:
+		if defender.is_downed():
+			break
+		_resolve_single_hit(attacker, defender, move)
+
+func _hit_count(move: MoveData) -> int:
+	for effect in move.effects:
+		var count := effect.hit_count()
+		if count != 1:
+			return count
+	return 1
+
+## Resolves `move` against every living entry in `targets` in turn (each
+## target gets the full _resolve_attack treatment, multi-hit included, on
+## its own -- one target going down doesn't affect the others). Built for
+## MultiTargetEffect moves; complete and tested on its own, but see that
+## class's doc comment for what's NOT wired up yet (the action menu doesn't
+## call this automatically).
+func resolve_multi_target_attack(attacker: Combatant, targets: Array[Combatant], move: MoveData) -> void:
+	for target in targets:
+		if target.is_downed():
+			continue
+		_resolve_attack(attacker, target, move)
+
+## One full resolution of `move` against `defender`: hit-chance roll,
+## damage roll, crit roll, guard halving, HP applied, message written, then
+## every one of the move's effects gets its apply() hook called (a no-op
+## for anything that isn't a per-hit secondary effect, e.g. MultiHitEffect/
+## MultiTargetEffect -- their hooks are consulted elsewhere, not here).
+## Body is unchanged from the pre-refactor _resolve_attack, just renamed
+## and wrapped by the hit-count loop above -- RNG draw order per hit is
+## identical to before, so every existing seeded test still holds.
+func _resolve_single_hit(attacker: Combatant, defender: Combatant, move: MoveData) -> void:
+	var hit_chance := _compute_hit_chance(attacker, defender, move)
+	if randf() > hit_chance:
 		message_label.text = "%s used %s, but it missed!" % [attacker.data.display_name, move.display_name]
 		return
 	var result := _compute_damage(attacker, defender, move)
+	var is_crit := randf() <= _compute_crit_chance(attacker)
 	var damage: int = max(1, int(result.damage * randf_range(0.9, 1.1)))
+	if is_crit:
+		damage = max(1, int(damage * CRIT_DAMAGE_MULT))
 	if defender.is_defending:
 		damage = max(1, int(damage * 0.5))
 	defender.apply_damage(damage)
 	message_label.text = "%s used %s! It dealt %d damage to %s." % [
 		attacker.data.display_name, move.display_name, damage, defender.data.display_name
 	]
+	if is_crit:
+		message_label.text += " Critical hit!"
 	var type_mult: float = result.type_mult
 	if type_mult > 1.0:
 		message_label.text += " It's super effective!"
@@ -268,6 +366,8 @@ func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -
 		message_label.text += " It's not very effective..."
 	if defender.is_downed():
 		message_label.text += " %s is downed!" % defender.data.display_name
+	for effect in move.effects:
+		effect.apply(attacker, defender, self)
 	_refresh_hud()
 
 func _check_battle_over() -> bool:
