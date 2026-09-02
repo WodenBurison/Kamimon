@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MoveData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_effect.gd" id="1_qjsiy"]
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="2_b4g2i"]
+
+[resource]
+script = ExtResource("2_b4g2i")
+display_name = "Root Bind"
+accuracy = 0.9
+domains = Array[String](["Verdant"])

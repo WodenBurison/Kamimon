@@ -31,3 +31,16 @@ class_name MoveData
 @export var accuracy: float = 1.0
 @export var domains: Array[String] = []
 @export var effects: Array[MoveEffect] = []
+
+## Pure data-derived helper (same spirit as MonsterData.equip_power() --
+## reads this move's own effects, touches no battle state) used by both
+## BattleActionMenu (skip the single-target picker) and BattleManager's
+## enemy-turn AI (hit every living target instead of one) for a move whose
+## effects include a MultiTargetEffect. Added 2026-09-02 when the
+## target_mode() hook got wired into the actual battle UI/AI -- see
+## MultiTargetEffect's doc comment.
+func targets_all_enemies() -> bool:
+	for effect in effects:
+		if effect.target_mode() == "all_enemies":
+			return true
+	return false

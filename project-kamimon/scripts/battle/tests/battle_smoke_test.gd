@@ -43,6 +43,9 @@ func _run_tests() -> void:
 	_test_stat_modifier_expires_after_duration()
 	await _test_multi_hit_effect_deals_multiple_hits()
 	await _test_resolve_multi_target_attack_hits_all_living_targets()
+	await _test_multi_target_move_skips_picker_and_hits_all_enemies()
+	await _test_enemy_ai_uses_multi_target_move_on_all_players()
+	_test_placeholder_battle_data_returns_independent_instances()
 
 	print("\n=== %d passed, %d failed ===" % [_pass_count, _fail_count])
 	quit(0 if _fail_count == 0 else 1)
@@ -603,6 +606,102 @@ func _test_resolve_multi_target_attack_hits_all_living_targets() -> void:
 
 	battle.queue_free()
 	await process_frame
+
+## New 2026-09-02: real UI-level check (button presses through
+## BattleActionMenu, not calling BattleManager methods directly) that a
+## move whose effects include a MultiTargetEffect skips the target picker
+## entirely and damages every living enemy, exercising the exact same path
+## a player takes: Battle -> a move button -> (no target menu) -> resolved.
+func _test_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var aoe := MultiTargetEffect.new()
+	var move := MoveData.new()
+	move.display_name = "GroupSweep"
+	move.power = 15
+	move.accuracy = 1.0
+	move.effects = [aoe]
+
+	var actor: Combatant = battle.player_party[0]
+	actor.data.assigned_moves = [move, move, move]
+
+	var hp_before: Array[int] = []
+	for c in battle.enemy_party:
+		hp_before.append(c.current_hp)
+
+	battle._start_turn(actor)
+	battle.action_menu.battle_button.pressed.emit()
+	battle.action_menu.move1_button.pressed.emit()
+
+	_check(
+		"a multi-target move skips the target picker entirely",
+		not battle.action_menu.target_menu_scroll.visible
+	)
+	_check("action menu hides after an AoE move resolves", not battle.action_menu.visible)
+	_check("state returns to TICKING after an AoE move resolves", battle.state == battle.State.TICKING)
+
+	var all_hit := true
+	for i in battle.enemy_party.size():
+		if battle.enemy_party[i].current_hp >= hp_before[i]:
+			all_hit = false
+	_check("every living enemy took damage from the AoE move", all_hit)
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-09-02: verifies the enemy-turn AI side of the same wiring --
+## _start_enemy_turn routes a MoveData.targets_all_enemies() move to
+## resolve_multi_target_attack against the whole living player party,
+## instead of the single randomly-picked target it uses for every other
+## move.
+func _test_enemy_ai_uses_multi_target_move_on_all_players() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var aoe := MultiTargetEffect.new()
+	var move := MoveData.new()
+	move.display_name = "EnemySweep"
+	move.power = 15
+	move.accuracy = 1.0
+	move.effects = [aoe]
+
+	var actor: Combatant = battle.enemy_party[0]
+	actor.data.assigned_moves = [move]
+
+	var hp_before: Array[int] = []
+	for c in battle.player_party:
+		hp_before.append(c.current_hp)
+
+	battle._start_turn(actor)
+
+	var all_hit := true
+	for i in battle.player_party.size():
+		if battle.player_party[i].current_hp >= hp_before[i]:
+			all_hit = false
+	_check("enemy AI's multi-target move damages every living player-party member", all_hit)
+	_check("state returns to TICKING after the enemy's AoE turn", battle.state == battle.State.TICKING)
+
+	battle.queue_free()
+	await process_frame
+
+## New 2026-09-02: verifies PlaceholderBattleData._load_monster()'s
+## .duplicate() call actually does its job -- this is the exact bug the
+## 2026-09-02 loader rewire exists to prevent (load() caches the same
+## Resource instance per path, so two calls without duplicating would
+## hand back the same MonsterData object twice). Mutates one party's
+## Emberkit and confirms a second, independently-fetched party's Emberkit
+## is unaffected.
+func _test_placeholder_battle_data_returns_independent_instances() -> void:
+	var party_a := PlaceholderBattleData.get_player_party()
+	var party_b := PlaceholderBattleData.get_player_party()
+
+	party_a[0].level = 99
+	_check(
+		"mutating one get_player_party() call's Emberkit doesn't affect a second call's Emberkit",
+		party_b[0].level != 99
+	)
+	_check("both calls still return the expected 4-monster party", party_a.size() == 4 and party_b.size() == 4)
 
 ## New 2026-09-01: verifies tick_stat_modifiers() actually decays and
 ## removes an expired modifier, and that Combatant.effective_defense()

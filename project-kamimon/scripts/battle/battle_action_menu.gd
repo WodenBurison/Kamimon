@@ -7,9 +7,13 @@ class_name BattleActionMenu
 ## Menu shape: Battle / Items / Stats / Run at the top level. Battle opens
 ## Attack, Guard, and the acting monster's three out-of-battle-assigned
 ## moves. Attack/moves that have more than one living enemy target prompt a
-## target picker; a single living target is auto-selected. Items and Stats
-## are look-only for now — Items has no item system to back it yet (stub),
-## and Stats is a read-only party status readout. Neither consumes a turn.
+## target picker; a single living target is auto-selected. A move whose
+## effects mark it as hitting every enemy (MoveData.targets_all_enemies(),
+## added 2026-09-02) skips the picker entirely — it emits
+## move_selected_all_enemies instead of move_selected, no target_index
+## involved. Items and Stats are look-only for now — Items has no item
+## system to back it yet (stub), and Stats is a read-only party status
+## readout. Neither consumes a turn.
 ##
 ## Each of the 5 sub-menus lives inside its own ScrollContainer (RootMenu is
 ## the only one that's always a fixed 4 buttons; the rest can grow — Battle
@@ -22,6 +26,7 @@ class_name BattleActionMenu
 signal attack_selected(target_index: int)
 signal guard_selected
 signal move_selected(move_index: int, target_index: int)
+signal move_selected_all_enemies(move_index: int)
 signal run_selected
 
 @onready var root_menu_scroll: ScrollContainer = %RootMenuScroll
@@ -131,6 +136,9 @@ func _on_move_button_pressed(move_index: int) -> void:
 		return
 	_pending_action = "move"
 	_pending_move_index = move_index
+	if _actor_moves[move_index].targets_all_enemies():
+		_confirm_all_enemies()
+		return
 	_open_target_menu()
 
 func _on_run_button_pressed() -> void:
@@ -181,6 +189,19 @@ func _confirm_target(target_index: int) -> void:
 		attack_selected.emit(target_index)
 	elif action == "move":
 		move_selected.emit(move_index, target_index)
+
+## Skips the target picker entirely for a move that hits every living enemy
+## (see MoveData.targets_all_enemies()) -- there's nothing to pick between.
+## Still respects the same "no living enemies, no-op" guard the normal
+## target menu enforces via _open_target_menu's own living-list check.
+func _confirm_all_enemies() -> void:
+	var move_index := _pending_move_index
+	_pending_action = ""
+	_pending_move_index = -1
+	hide_all()
+	if _living_enemy_indices().is_empty():
+		return
+	move_selected_all_enemies.emit(move_index)
 
 func _on_target_back_pressed() -> void:
 	_pending_action = ""

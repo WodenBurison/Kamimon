@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="1_kdxli"]
+[ext_resource type="Resource" path="res://resources/moves/guard_bash.tres" id="2_r3vj1"]
+[ext_resource type="Resource" path="res://resources/moves/tackle.tres" id="3_key7j"]
+[ext_resource type="Resource" path="res://resources/moves/root_bind.tres" id="4_y1jxi"]
+[ext_resource type="Texture2D" path="res://assets/placeholder_My_mon_back_sprite.png" id="5_v2vr7"]
+[ext_resource type="Script" path="res://scripts/data/monster_data.gd" id="6_tpujn"]
+
+[resource]
+script = ExtResource("6_tpujn")
+display_name = "Mossback"
+max_hp = 120
+defense = 14
+speed = 8
+domains = Array[String](["Verdant", "", "", ""])
+battler_sprite = ExtResource("5_v2vr7")
+assigned_moves = Array[ExtResource("1_kdxli")]([ExtResource("2_r3vj1"), ExtResource("3_key7j"), ExtResource("4_y1jxi")])

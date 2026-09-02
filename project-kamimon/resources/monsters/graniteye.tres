@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="1_tlvq6"]
+[ext_resource type="Resource" path="res://resources/moves/stone_fist.tres" id="2_wo5g0"]
+[ext_resource type="Resource" path="res://resources/moves/guard_bash.tres" id="3_vqcx3"]
+[ext_resource type="Resource" path="res://resources/moves/tackle.tres" id="4_1ewy1"]
+[ext_resource type="Texture2D" path="res://assets/placeholder_My_mon_back_sprite.png" id="5_ywmlq"]
+[ext_resource type="Script" path="res://scripts/data/monster_data.gd" id="6_crasf"]
+
+[resource]
+script = ExtResource("6_crasf")
+display_name = "Graniteye"
+max_hp = 105
+attack = 13
+defense = 16
+speed = 6
+domains = Array[String](["Stone", "", "", ""])
+battler_sprite = ExtResource("5_ywmlq")
+assigned_moves = Array[ExtResource("1_tlvq6")]([ExtResource("2_wo5g0"), ExtResource("3_vqcx3"), ExtResource("4_1ewy1")])

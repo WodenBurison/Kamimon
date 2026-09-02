@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="1_p2jjq"]
+[ext_resource type="Resource" path="res://resources/moves/bite.tres" id="2_uypx3"]
+[ext_resource type="Resource" path="res://resources/moves/snarl.tres" id="3_3prcu"]
+[ext_resource type="Resource" path="res://resources/moves/claw_rake.tres" id="4_ykvch"]
+[ext_resource type="Texture2D" path="res://assets/placeholder_enemy_mon.png" id="5_1mbvg"]
+[ext_resource type="Script" path="res://scripts/data/monster_data.gd" id="6_5cgbg"]
+
+[resource]
+script = ExtResource("6_5cgbg")
+display_name = "Grimhowl Pup"
+max_hp = 60
+attack = 9
+defense = 6
+speed = 18
+domains = Array[String](["Frost", "", "", ""])
+battler_sprite = ExtResource("5_1mbvg")
+assigned_moves = Array[ExtResource("1_p2jjq")]([ExtResource("2_uypx3"), ExtResource("3_3prcu"), ExtResource("4_ykvch")])

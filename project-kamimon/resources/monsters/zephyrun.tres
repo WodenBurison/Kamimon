@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="1_i74wv"]
+[ext_resource type="Resource" path="res://resources/moves/quick_snap.tres" id="2_ve6wp"]
+[ext_resource type="Resource" path="res://resources/moves/tackle.tres" id="3_mf1dl"]
+[ext_resource type="Resource" path="res://resources/moves/gale_slice.tres" id="4_lj8gu"]
+[ext_resource type="Texture2D" path="res://assets/placeholder_My_mon_back_sprite.png" id="5_dc1t1"]
+[ext_resource type="Script" path="res://scripts/data/monster_data.gd" id="6_lgrjo"]
+
+[resource]
+script = ExtResource("6_lgrjo")
+display_name = "Zephyrun"
+max_hp = 75
+attack = 12
+defense = 6
+speed = 20
+domains = Array[String](["Gale", "", "", ""])
+battler_sprite = ExtResource("5_dc1t1")
+assigned_moves = Array[ExtResource("1_i74wv")]([ExtResource("2_ve6wp"), ExtResource("3_mf1dl"), ExtResource("4_lj8gu")])

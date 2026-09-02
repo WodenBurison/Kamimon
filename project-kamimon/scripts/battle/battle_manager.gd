@@ -92,6 +92,7 @@ func _ready() -> void:
 	action_menu.attack_selected.connect(_on_attack_selected)
 	action_menu.guard_selected.connect(_on_guard_selected)
 	action_menu.move_selected.connect(_on_move_selected)
+	action_menu.move_selected_all_enemies.connect(_on_move_selected_all_enemies)
 	action_menu.run_selected.connect(_on_run_selected)
 	hud.build(player_party, enemy_party)
 	_refresh_hud()
@@ -186,6 +187,17 @@ func _on_move_selected(move_index: int, target_index: int) -> void:
 		return
 	_resolve_player_action(moves[move_index], target_index)
 
+## Counterpart to _on_move_selected for a move BattleActionMenu identified
+## as hitting every living enemy (MoveData.targets_all_enemies()) -- no
+## target_index involved, there was nothing to pick between.
+func _on_move_selected_all_enemies(move_index: int) -> void:
+	if state != State.PLAYER_INPUT:
+		return
+	var moves := _current_actor.data.assigned_moves
+	if move_index < 0 or move_index >= moves.size():
+		return
+	_resolve_player_aoe_action(moves[move_index])
+
 func _on_guard_selected() -> void:
 	if state != State.PLAYER_INPUT:
 		return
@@ -214,6 +226,21 @@ func _resolve_player_action(move: MoveData, target_index: int) -> void:
 	action_menu.hide_all()
 	_after_action()
 
+## Counterpart to _resolve_player_action for a move that hits every living
+## enemy at once (see MoveData.targets_all_enemies()) -- resolves against
+## the whole living enemy party via resolve_multi_target_attack() instead
+## of a single picked target.
+func _resolve_player_aoe_action(move: MoveData) -> void:
+	var targets := _living(enemy_party)
+	if targets.is_empty():
+		action_menu.hide_all()
+		_after_action()
+		return
+	state = State.RESOLVING
+	resolve_multi_target_attack(_current_actor, targets, move)
+	action_menu.hide_all()
+	_after_action()
+
 func _after_action() -> void:
 	_current_actor = null
 	if _check_battle_over():
@@ -224,10 +251,17 @@ func _start_enemy_turn(actor: Combatant) -> void:
 	state = State.RESOLVING
 	var targets := _living(player_party)
 	if not targets.is_empty():
+		# Target and move are both rolled unconditionally, same as before
+		# this branch existed, so seeded tests that assume this exact
+		# draw order (target index, then move index) keep working even
+		# though `target` goes unused on the all-enemies branch below.
 		var target: Combatant = targets[randi() % targets.size()]
 		var moves := actor.data.assigned_moves
 		var move: MoveData = moves[randi() % moves.size()] if not moves.is_empty() else _basic_attack_move()
-		_resolve_attack(actor, target, move)
+		if move.targets_all_enemies():
+			resolve_multi_target_attack(actor, targets, move)
+		else:
+			_resolve_attack(actor, target, move)
 	_after_action()
 
 func _living(party: Array[Combatant]) -> Array[Combatant]:
@@ -304,9 +338,11 @@ func _compute_crit_chance(attacker: Combatant) -> float:
 ## MoveEffect's doc comment), stopping early if `defender` goes down
 ## partway through since there's nothing left to hit. For a move whose
 ## effects include a MultiTargetEffect, this only ever resolves against the
-## one `defender` passed in -- use resolve_multi_target_attack() below for
-## the "hit everyone" case instead (nothing currently calls it
-## automatically from target_mode(), see MultiTargetEffect's doc comment).
+## one `defender` passed in -- resolve_multi_target_attack() below is the
+## "hit everyone" case, and both the player action menu
+## (_on_move_selected_all_enemies) and enemy-turn AI (_start_enemy_turn)
+## route a MoveData.targets_all_enemies() move there automatically as of
+## 2026-09-02, see MultiTargetEffect's doc comment.
 func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -> void:
 	var hits := _hit_count(move)
 	for i in hits:
@@ -323,10 +359,10 @@ func _hit_count(move: MoveData) -> int:
 
 ## Resolves `move` against every living entry in `targets` in turn (each
 ## target gets the full _resolve_attack treatment, multi-hit included, on
-## its own -- one target going down doesn't affect the others). Built for
-## MultiTargetEffect moves; complete and tested on its own, but see that
-## class's doc comment for what's NOT wired up yet (the action menu doesn't
-## call this automatically).
+## its own -- one target going down doesn't affect the others). Called
+## automatically for a MoveData.targets_all_enemies() move by both
+## _on_move_selected_all_enemies (player) and _start_enemy_turn (AI) as of
+## 2026-09-02 -- see MultiTargetEffect's doc comment.
 func resolve_multi_target_attack(attacker: Combatant, targets: Array[Combatant], move: MoveData) -> void:
 	for target in targets:
 		if target.is_downed():

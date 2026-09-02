@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MoveData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_effect.gd" id="1_jecea"]
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="2_5vens"]
+
+[resource]
+script = ExtResource("2_5vens")
+display_name = "Snarl"
+power = 9

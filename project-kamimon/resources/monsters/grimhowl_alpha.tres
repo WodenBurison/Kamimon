@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="MonsterData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="1_xa6h1"]
+[ext_resource type="Resource" path="res://resources/moves/bite.tres" id="2_yhadc"]
+[ext_resource type="Resource" path="res://resources/moves/claw_rake.tres" id="3_0tch0"]
+[ext_resource type="Resource" path="res://resources/moves/snarl.tres" id="4_qplow"]
+[ext_resource type="Texture2D" path="res://assets/placeholder_enemy_mon.png" id="5_uunid"]
+[ext_resource type="Script" path="res://scripts/data/monster_data.gd" id="6_vg74q"]
+
+[resource]
+script = ExtResource("6_vg74q")
+display_name = "Grimhowl Alpha"
+max_hp = 130
+attack = 16
+defense = 12
+domains = Array[String](["Frost", "", "", ""])
+battler_sprite = ExtResource("5_uunid")
+assigned_moves = Array[ExtResource("1_xa6h1")]([ExtResource("2_yhadc"), ExtResource("3_0tch0"), ExtResource("4_qplow")])
