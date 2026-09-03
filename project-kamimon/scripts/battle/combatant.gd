@@ -8,6 +8,21 @@ class_name Combatant
 
 const ATB_MAX := 100.0
 
+## Speed-to-gauge-fill diminishing-returns constant (2026-09-03), same
+## tanh-bounded shape as battle_manager.gd's LEVEL_CAP/LEVEL_STEEPNESS
+## (`cap * tanh(x / steepness)`, not the multiplicative `cap ^ tanh(x)`
+## form used there -- this isn't a ratio between two combatants, it's a
+## single stat being turned into a bounded fill rate). SPEED_REFERENCE
+## does double duty as both the steepness and the asymptotic cap: for
+## speed well under this value the curve is close to linear (matches
+## today's roster, speed 6-20, within about 8% of the old uncapped
+## behavior), and gains taper off hard as speed climbs toward and past
+## it, so a very high Speed stat (once real high-end content exists)
+## can't buy unbounded turn frequency the way flat `speed * delta` did.
+## Placeholder value, not yet reviewed by Woden -- same status as
+## GEAR_CAP/ACC_EVA_CAP/CRIT_STAT_REFERENCE.
+const SPEED_REFERENCE := 40.0
+
 ## Stage step/cap for the new stat-modifier mechanic -- deliberately small
 ## and hard-clamped to stay "mellow" in the spirit of the rest of the
 ## combat formula, but these exact numbers are Claude's placeholder pick
@@ -97,8 +112,14 @@ func effective_attack() -> float:
 func effective_defense() -> float:
 	return data.defense * _stage_multiplier("Defense")
 
+## Diminishing-returns curve applied to the raw stat first (see
+## SPEED_REFERENCE above), THEN the stage multiplier on top -- a
+## temporary Speed buff/debuff from a move effect still swings turn
+## frequency by its full linear percentage, it's only the underlying
+## stat investment that gets bent toward a cap.
 func effective_speed() -> float:
-	return data.speed * _stage_multiplier("Speed")
+	var curved_speed: float = SPEED_REFERENCE * tanh(data.speed / SPEED_REFERENCE)
+	return curved_speed * _stage_multiplier("Speed")
 
 func effective_accuracy() -> float:
 	return data.accuracy * _stage_multiplier("Accuracy")
