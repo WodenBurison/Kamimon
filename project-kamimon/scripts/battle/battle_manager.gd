@@ -92,6 +92,7 @@ func _ready() -> void:
 	action_menu.attack_selected.connect(_on_attack_selected)
 	action_menu.guard_selected.connect(_on_guard_selected)
 	action_menu.move_selected.connect(_on_move_selected)
+	action_menu.move_selected_random.connect(_on_move_selected)
 	action_menu.move_selected_all_enemies.connect(_on_move_selected_all_enemies)
 	action_menu.run_selected.connect(_on_run_selected)
 	hud.build(player_party, enemy_party)
@@ -186,6 +187,7 @@ func _on_move_selected(move_index: int, target_index: int) -> void:
 	if move_index < 0 or move_index >= moves.size():
 		return
 	_resolve_player_action(moves[move_index], target_index)
+	
 
 ## Counterpart to _on_move_selected for a move BattleActionMenu identified
 ## as hitting every living enemy (MoveData.targets_all_enemies()) -- no
@@ -350,12 +352,10 @@ func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -
 			break
 		_resolve_single_hit(attacker, defender, move)
 
+## _hit_count resolves per defender
 func _hit_count(move: MoveData) -> int:
-	for effect in move.effects:
-		var count := effect.hit_count()
-		if count != 1:
-			return count
-	return 1
+	return move.attempts
+	
 
 ## Resolves `move` against every living entry in `targets` in turn (each
 ## target gets the full _resolve_attack treatment, multi-hit included, on

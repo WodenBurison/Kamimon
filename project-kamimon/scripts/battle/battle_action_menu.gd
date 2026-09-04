@@ -26,6 +26,7 @@ class_name BattleActionMenu
 signal attack_selected(target_index: int)
 signal guard_selected
 signal move_selected(move_index: int, target_index: int)
+signal move_selected_random(move_index: int, target_index: int)
 signal move_selected_all_enemies(move_index: int)
 signal run_selected
 
@@ -139,6 +140,9 @@ func _on_move_button_pressed(move_index: int) -> void:
 	if _actor_moves[move_index].targets_all_enemies():
 		_confirm_all_enemies()
 		return
+	if _actor_moves[move_index].random_target == true:
+		_confirm_random_target()
+		return
 	_open_target_menu()
 
 func _on_run_button_pressed() -> void:
@@ -189,6 +193,18 @@ func _confirm_target(target_index: int) -> void:
 		attack_selected.emit(target_index)
 	elif action == "move":
 		move_selected.emit(move_index, target_index)
+
+func _confirm_random_target() -> void:
+	var move_index := _pending_move_index
+	_pending_action = ""
+	_pending_move_index = -1
+	hide_all()
+	var enemy_choices: Array[int] = _living_enemy_indices()
+	if enemy_choices.is_empty():
+		return
+	var enemy_chosen: int = enemy_choices.pick_random()
+	move_selected_random.emit(move_index, enemy_chosen)
+	
 
 ## Skips the target picker entirely for a move that hits every living enemy
 ## (see MoveData.targets_all_enemies()) -- there's nothing to pick between.

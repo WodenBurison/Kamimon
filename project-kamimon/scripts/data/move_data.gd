@@ -29,6 +29,10 @@ class_name MoveData
 @export var display_name: String = ""
 @export var power: int = 10
 @export var accuracy: float = 1.0
+@export var targets: int = 1
+@export var attempts: int = 1
+@export var random_target: bool = false
+@export var target_all: bool = false
 @export var domains: Array[String] = []
 @export var effects: Array[MoveEffect] = []
 
@@ -40,7 +44,4 @@ class_name MoveData
 ## target_mode() hook got wired into the actual battle UI/AI -- see
 ## MultiTargetEffect's doc comment.
 func targets_all_enemies() -> bool:
-	for effect in effects:
-		if effect.target_mode() == "all_enemies":
-			return true
-	return false
+	return target_all
