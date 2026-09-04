@@ -25,28 +25,28 @@ func _initialize() -> void:
 func _run_tests() -> void:
 	await process_frame
 
-	await _test_scene_loads_and_menu_opens()
-	await _test_attack_hits_and_advances_turn()
-	await _test_assigned_move_hits()
-	await _test_downed_excluded_from_targets()
-	_test_guard_halves_damage()
-	_test_domain_effectiveness()
-	await _test_win_detection()
-	await _test_run_flees()
-	await _test_level_gap_affects_damage()
-	await _test_gear_affects_damage()
-	await _test_evasion_reduces_hit_chance()
-	await _test_crit_stat_raises_crit_chance()
-	await _test_crit_can_multiply_damage()
-	await _test_stat_modifier_changes_effective_stat_and_damage()
-	await _test_move_effect_applies_stat_modifier_to_defender()
-	_test_stat_modifier_expires_after_duration()
-	await _test_multi_hit_effect_deals_multiple_hits()
-	await _test_resolve_multi_target_attack_hits_all_living_targets()
-	await _test_multi_target_move_skips_picker_and_hits_all_enemies()
-	await _test_enemy_ai_uses_multi_target_move_on_all_players()
-	_test_placeholder_battle_data_returns_independent_instances()
-	_test_effective_speed_has_diminishing_returns()
+	await _test000100_scene_loads_and_menu_opens()
+	await _test000200_attack_hits_and_advances_turn()
+	await _test000300_assigned_move_hits()
+	await _test000400_downed_excluded_from_targets()
+	_test000500_guard_halves_damage()
+	_test000600_domain_effectiveness()
+	await _test002100_win_detection()
+	await _test002200_run_flees()
+	await _test000700_level_gap_affects_damage()
+	await _test000800_gear_affects_damage()
+	await _test000900_evasion_reduces_hit_chance()
+	await _test001000_crit_stat_raises_crit_chance()
+	await _test001100_crit_can_multiply_damage()
+	await _test001200_stat_modifier_changes_effective_stat_and_damage()
+	await _test001300_move_effect_applies_stat_modifier_to_defender()
+	_test002000_stat_modifier_expires_after_duration()
+	await _test001400_multi_hit_effect_deals_multiple_hits()
+	await _test001500_resolve_multi_target_attack_hits_all_living_targets()
+	await _test001600_multi_target_move_skips_picker_and_hits_all_enemies()
+	await _test001700_enemy_ai_uses_multi_target_move_on_all_players()
+	_test001800_placeholder_battle_data_returns_independent_instances()
+	_test001900_effective_speed_has_diminishing_returns()
 
 	print("\n=== %d passed, %d failed ===" % [_pass_count, _fail_count])
 	quit(0 if _fail_count == 0 else 1)
@@ -76,34 +76,34 @@ func _new_combatant(mon_name: String, hp: int, atk: int, def: int, spd: int) -> 
 
 ## ---------------------------------------------------------------------
 
-func _test_scene_loads_and_menu_opens() -> void:
+func _test000100_scene_loads_and_menu_opens() -> void:
 	var battle := _load_battle()
 	await process_frame
 
-	_check("player party has 4 monsters", battle.player_party.size() == 4)
-	_check("enemy party has 3 monsters", battle.enemy_party.size() == 3)
-	_check("battle starts in TICKING", battle.state == battle.State.TICKING)
+	_check("000100a: player party has 4 monsters", battle.player_party.size() == 4)
+	_check("000100b: enemy party has 3 monsters", battle.enemy_party.size() == 3)
+	_check("000100c: battle starts in TICKING", battle.state == battle.State.TICKING)
 
 	var actor: Combatant = battle.player_party[0]
 	battle._start_turn(actor)
-	_check("forcing a turn enters PLAYER_INPUT", battle.state == battle.State.PLAYER_INPUT)
-	_check("action menu is visible", battle.action_menu.visible)
-	_check("root menu is showing", battle.action_menu.root_menu_scroll.visible)
+	_check("000100d: forcing a turn enters PLAYER_INPUT", battle.state == battle.State.PLAYER_INPUT)
+	_check("000100e: action menu is visible", battle.action_menu.visible)
+	_check("000100f: root menu is showing", battle.action_menu.root_menu_scroll.visible)
 
 	var moves := actor.data.assigned_moves
-	_check("move1 label matches assigned move", battle.action_menu.move1_button.text == moves[0].display_name)
-	_check("move2 label matches assigned move", battle.action_menu.move2_button.text == moves[1].display_name)
-	_check("move3 label matches assigned move", battle.action_menu.move3_button.text == moves[2].display_name)
-	_check("move1 is not disabled", not battle.action_menu.move1_button.disabled)
+	_check("000100g: move1 label matches assigned move", battle.action_menu.move1_button.text == moves[0].display_name)
+	_check("000100h: move2 label matches assigned move", battle.action_menu.move2_button.text == moves[1].display_name)
+	_check("000100i: move3 label matches assigned move", battle.action_menu.move3_button.text == moves[2].display_name)
+	_check("000100j: move1 is not disabled", not battle.action_menu.move1_button.disabled)
 
 	battle.action_menu.battle_button.pressed.emit()
-	_check("Battle press shows the battle menu", battle.action_menu.battle_menu_scroll.visible)
-	_check("Battle press hides the root menu", not battle.action_menu.root_menu_scroll.visible)
+	_check("000100k: Battle press shows the battle menu", battle.action_menu.battle_menu_scroll.visible)
+	_check("000100l: Battle press hides the root menu", not battle.action_menu.root_menu_scroll.visible)
 
 	battle.queue_free()
 	await process_frame
 
-func _test_attack_hits_and_advances_turn() -> void:
+func _test000200_attack_hits_and_advances_turn() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -114,11 +114,11 @@ func _test_attack_hits_and_advances_turn() -> void:
 
 	var living_count := 3
 	_check(
-		"Attack with 3 living enemies opens the target picker",
+		"000200a: Attack with 3 living enemies opens the target picker",
 		battle.action_menu.target_menu_scroll.visible
 	)
 	_check(
-		"target menu lists 3 targets + Back",
+		"000200b: target menu lists 3 targets + Back",
 		battle.action_menu.target_menu.get_child_count() == living_count + 1
 	)
 
@@ -126,14 +126,14 @@ func _test_attack_hits_and_advances_turn() -> void:
 	var hp_before := target.current_hp
 	_confirm_target_index(battle, 0)
 
-	_check("basic Attack (guaranteed accuracy) dealt damage", target.current_hp < hp_before)
-	_check("state returns to TICKING after a resolved action", battle.state == battle.State.TICKING)
-	_check("action menu hides after the turn resolves", not battle.action_menu.visible)
+	_check("000200c: basic Attack (guaranteed accuracy) dealt damage", target.current_hp < hp_before)
+	_check("000200d: state returns to TICKING after a resolved action", battle.state == battle.State.TICKING)
+	_check("000200e: action menu hides after the turn resolves", not battle.action_menu.visible)
 
 	battle.queue_free()
 	await process_frame
 
-func _test_assigned_move_hits() -> void:
+func _test000300_assigned_move_hits() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -148,18 +148,18 @@ func _test_assigned_move_hits() -> void:
 	var hp_before := target.current_hp
 	_confirm_target_index(battle, 1)
 
-	_check("assigned move (100%% accuracy) dealt damage", target.current_hp < hp_before)
-	_check("state returns to TICKING after an assigned move", battle.state == battle.State.TICKING)
+	_check("000300a: assigned move (100%% accuracy) dealt damage", target.current_hp < hp_before)
+	_check("000300b: state returns to TICKING after an assigned move", battle.state == battle.State.TICKING)
 
 	battle.queue_free()
 	await process_frame
 
-func _test_downed_excluded_from_targets() -> void:
+func _test000400_downed_excluded_from_targets() -> void:
 	var battle := _load_battle()
 	await process_frame
 
 	battle.enemy_party[2].apply_damage(9999)
-	_check("forced damage downs the target enemy", battle.enemy_party[2].is_downed())
+	_check("000400a: forced damage downs the target enemy", battle.enemy_party[2].is_downed())
 
 	var actor: Combatant = battle.player_party[2]
 	battle._start_turn(actor)
@@ -167,7 +167,7 @@ func _test_downed_excluded_from_targets() -> void:
 	battle.action_menu.attack_button.pressed.emit()
 
 	_check(
-		"target menu excludes the downed enemy (2 living + Back)",
+		"000400b: target menu excludes the downed enemy (2 living + Back)",
 		battle.action_menu.target_menu.get_child_count() == 3
 	)
 	var downed_name: String = battle.enemy_party[2].data.display_name
@@ -175,16 +175,16 @@ func _test_downed_excluded_from_targets() -> void:
 	for child in battle.action_menu.target_menu.get_children():
 		if child is Button and (child as Button).text.begins_with(downed_name):
 			found_downed = true
-	_check("downed enemy's name does not appear in the target list", not found_downed)
+	_check("000400c: downed enemy's name does not appear in the target list", not found_downed)
 
 	# Resolve the turn so we don't leave state stuck for anything after this.
 	_confirm_target_index(battle, 0)
-	_check("state returns to TICKING after resolving around a downed enemy", battle.state == battle.State.TICKING)
+	_check("000400d: state returns to TICKING after resolving around a downed enemy", battle.state == battle.State.TICKING)
 
 	battle.queue_free()
 	await process_frame
 
-func _test_guard_halves_damage() -> void:
+func _test000500_guard_halves_damage() -> void:
 	var attacker := _new_combatant("TestAttacker", 100, 20, 5, 10)
 	var move := MoveData.new()
 	move.display_name = "TestStrike"
@@ -209,9 +209,9 @@ func _test_guard_halves_damage() -> void:
 	battle._resolve_attack(attacker, defender_guarded, move)
 	var guarded_damage := 200 - defender_guarded.current_hp
 
-	_check("guarding reduced damage taken (%d vs %d)" % [guarded_damage, plain_damage], guarded_damage < plain_damage)
+	_check("000500a: guarding reduced damage taken (%d vs %d)" % [guarded_damage, plain_damage], guarded_damage < plain_damage)
 	_check(
-		"guarded damage is roughly half of unguarded (within rounding)",
+		"000500b: guarded damage is roughly half of unguarded (within rounding)",
 		guarded_damage <= int(ceil(plain_damage / 2.0)) + 1
 	)
 
@@ -221,7 +221,7 @@ func _test_guard_halves_damage() -> void:
 ## real locked graph: Tide beats Flame (super-effective), Flame beats
 ## Verdant (so a Verdant-domain move into a Flame-domain defender is
 ## not-very-effective).
-func _test_domain_effectiveness() -> void:
+func _test000600_domain_effectiveness() -> void:
 	var attacker := _new_combatant("TestAttacker", 100, 20, 5, 10)
 	# No domains set on the attacker deliberately — isolates this test to
 	# weakness/resistance (defender-side) only, no stab in the mix.
@@ -267,11 +267,11 @@ func _test_domain_effectiveness() -> void:
 	var weak_damage := 300 - defender_weak.current_hp
 
 	_check(
-		"Tide move vs Flame defender is super-effective (%d > %d neutral)" % [super_damage, neutral_damage],
+		"000600a: Tide move vs Flame defender is super-effective (%d > %d neutral)" % [super_damage, neutral_damage],
 		super_damage > neutral_damage
 	)
 	_check(
-		"Verdant move vs Flame defender is not-very-effective (%d < %d neutral)" % [weak_damage, neutral_damage],
+		"000600b: Verdant move vs Flame defender is not-very-effective (%d < %d neutral)" % [weak_damage, neutral_damage],
 		weak_damage < neutral_damage
 	)
 
@@ -281,7 +281,7 @@ func _test_domain_effectiveness() -> void:
 ## _resolve_attack now that MonsterData carries a real level field — same
 ## power/stats/domains on both sides, only level differs, so any damage
 ## difference has to come from the level-gap term.
-func _test_level_gap_affects_damage() -> void:
+func _test000700_level_gap_affects_damage() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -309,7 +309,7 @@ func _test_level_gap_affects_damage() -> void:
 	var high_level_damage := 300 - defender_b.current_hp
 
 	_check(
-		"higher attacker level deals more damage at equal stats (%d > %d)" % [high_level_damage, low_level_damage],
+		"000700: higher attacker level deals more damage at equal stats (%d > %d)" % [high_level_damage, low_level_damage],
 		high_level_damage > low_level_damage
 	)
 
@@ -319,7 +319,7 @@ func _test_level_gap_affects_damage() -> void:
 ## New 2026-08-31: verifies the equipment skeleton's equip_power()/
 ## gearFactor plumbing actually affects damage, using the 3-slot array
 ## directly (no real gear items exist yet, see MonsterData.equipped_gear).
-func _test_gear_affects_damage() -> void:
+func _test000800_gear_affects_damage() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -344,7 +344,7 @@ func _test_gear_affects_damage() -> void:
 	var plain_damage := 300 - defender_b.current_hp
 
 	_check(
-		"equipped gear deals more damage than none, equal stats (%d > %d)" % [geared_damage, plain_damage],
+		"000800: equipped gear deals more damage than none, equal stats (%d > %d)" % [geared_damage, plain_damage],
 		geared_damage > plain_damage
 	)
 
@@ -358,7 +358,7 @@ func _test_gear_affects_damage() -> void:
 ## the MIN_HIT_CHANCE floor. Tests the pure formula directly (like
 ## _compute_damage) rather than over many random trials, since the formula
 ## itself is deterministic.
-func _test_evasion_reduces_hit_chance() -> void:
+func _test000900_evasion_reduces_hit_chance() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -375,10 +375,10 @@ func _test_evasion_reduces_hit_chance() -> void:
 	var high_eva_chance: float = battle._compute_hit_chance(attacker, high_evasion_defender, move)
 
 	_check(
-		"higher defender evasion lowers hit chance (%.3f < %.3f)" % [high_eva_chance, low_eva_chance],
+		"000900a: higher defender evasion lowers hit chance (%.3f < %.3f)" % [high_eva_chance, low_eva_chance],
 		high_eva_chance < low_eva_chance
 	)
-	_check("hit chance never drops below the MIN_HIT_CHANCE floor", high_eva_chance >= battle.MIN_HIT_CHANCE)
+	_check("000900b: hit chance never drops below the MIN_HIT_CHANCE floor", high_eva_chance >= battle.MIN_HIT_CHANCE)
 
 	battle.queue_free()
 	await process_frame
@@ -387,7 +387,7 @@ func _test_evasion_reduces_hit_chance() -> void:
 ## reads the attacker's Crit stat, and that a default-stat monster (equal to
 ## CRIT_STAT_REFERENCE) lands exactly on BASE_CRIT_CHANCE — i.e. this is a
 ## true no-op for every existing test that doesn't set crit_stat.
-func _test_crit_stat_raises_crit_chance() -> void:
+func _test001000_crit_stat_raises_crit_chance() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -399,14 +399,14 @@ func _test_crit_stat_raises_crit_chance() -> void:
 	var high_chance: float = battle._compute_crit_chance(high_crit_attacker)
 
 	_check(
-		"default crit stat matches the flat baseline exactly (%.4f == %.4f)" % [default_chance, battle.BASE_CRIT_CHANCE],
+		"001000a: default crit stat matches the flat baseline exactly (%.4f == %.4f)" % [default_chance, battle.BASE_CRIT_CHANCE],
 		is_equal_approx(default_chance, battle.BASE_CRIT_CHANCE)
 	)
 	_check(
-		"higher crit stat raises crit chance (%.3f > %.3f)" % [high_chance, default_chance],
+		"001000b: higher crit stat raises crit chance (%.3f > %.3f)" % [high_chance, default_chance],
 		high_chance > default_chance
 	)
-	_check("crit chance never exceeds the hard clamp", high_chance <= battle.MAX_CRIT_CHANCE)
+	_check("001000c: crit chance never exceeds the hard clamp", high_chance <= battle.MAX_CRIT_CHANCE)
 
 	battle.queue_free()
 	await process_frame
@@ -418,7 +418,7 @@ func _test_crit_stat_raises_crit_chance() -> void:
 ## than asserting on one — with the constants above that's a well under
 ## 1-in-a-million chance of a false failure, while still being a real
 ## end-to-end check through the same code path battles use.
-func _test_crit_can_multiply_damage() -> void:
+func _test001100_crit_can_multiply_damage() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -446,7 +446,7 @@ func _test_crit_can_multiply_damage() -> void:
 			saw_crit = true
 			break
 
-	_check("a high crit-stat attacker lands at least one crit over 40 seeded trials", saw_crit)
+	_check("001100: a high crit-stat attacker lands at least one crit over 40 seeded trials", saw_crit)
 
 	battle.queue_free()
 	await process_frame
@@ -456,7 +456,7 @@ func _test_crit_can_multiply_damage() -> void:
 ## _compute_damage - a debuffed defender should take more damage than an
 ## unmodified one at otherwise-identical stats. Pure/deterministic, no RNG
 ## involved (unlike the move-effect trigger tests below).
-func _test_stat_modifier_changes_effective_stat_and_damage() -> void:
+func _test001200_stat_modifier_changes_effective_stat_and_damage() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -470,14 +470,14 @@ func _test_stat_modifier_changes_effective_stat_and_damage() -> void:
 	debuffed_defender.apply_stat_modifier("Defense", -1, 3)
 
 	_check(
-		"a -1 Defense stage lowers effective_defense() below the base stat (%.2f < %d)" % [debuffed_defender.effective_defense(), 10],
+		"001200a: a -1 Defense stage lowers effective_defense() below the base stat (%.2f < %d)" % [debuffed_defender.effective_defense(), 10],
 		debuffed_defender.effective_defense() < 10.0
 	)
 
 	var plain_result: Dictionary = battle._compute_damage(attacker, plain_defender, move)
 	var debuffed_result: Dictionary = battle._compute_damage(attacker, debuffed_defender, move)
 	_check(
-		"a defense-debuffed defender takes more computed damage (%d > %d)" % [debuffed_result.damage, plain_result.damage],
+		"001200b: a defense-debuffed defender takes more computed damage (%d > %d)" % [debuffed_result.damage, plain_result.damage],
 		debuffed_result.damage > plain_result.damage
 	)
 
@@ -491,7 +491,7 @@ func _test_stat_modifier_changes_effective_stat_and_damage() -> void:
 ## worth testing separately). Also confirms a move with effects == []
 ## leaves the defender's stat_modifiers untouched, so the whole mechanic is
 ## a true no-op for every other move/test in this file.
-func _test_move_effect_applies_stat_modifier_to_defender() -> void:
+func _test001300_move_effect_applies_stat_modifier_to_defender() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -517,11 +517,11 @@ func _test_move_effect_applies_stat_modifier_to_defender() -> void:
 	var defender_b := _new_combatant("DefenderB", 100, 10, 10, 10)
 
 	battle._resolve_attack(attacker, defender_a, debuff_move)
-	_check("a guaranteed-trigger effect adds an entry to the defender's stat_modifiers", defender_a.stat_modifiers.has("Defense"))
-	_check("the applied stage matches the effect's stages", defender_a.stat_modifiers.get("Defense", {}).get("stages") == -1)
+	_check("001300a: a guaranteed-trigger effect adds an entry to the defender's stat_modifiers", defender_a.stat_modifiers.has("Defense"))
+	_check("001300b: the applied stage matches the effect's stages", defender_a.stat_modifiers.get("Defense", {}).get("stages") == -1)
 
 	battle._resolve_attack(attacker, defender_b, plain_move)
-	_check("a move with no effects leaves the defender's stat_modifiers empty", defender_b.stat_modifiers.is_empty())
+	_check("001300c: a move with no effects leaves the defender's stat_modifiers empty", defender_b.stat_modifiers.is_empty())
 
 	battle.queue_free()
 	await process_frame
@@ -532,19 +532,15 @@ func _test_move_effect_applies_stat_modifier_to_defender() -> void:
 ## roughly 3x the damage (not exactly, since each hit rolls its own 0.9-1.1
 ## variance independently -- checked with a wide tolerance band, not an
 ## exact multiple).
-func _test_multi_hit_effect_deals_multiple_hits() -> void:
+func _test001400_multi_hit_effect_deals_multiple_hits() -> void:
 	var battle := _load_battle()
 	await process_frame
-
-	var triple_hit := MultiHitEffect.new()
-	triple_hit.min_hits = 3
-	triple_hit.max_hits = 3
 
 	var multi_move := MoveData.new()
 	multi_move.display_name = "TripleStrike"
 	multi_move.power = 10
 	multi_move.accuracy = 1.0
-	multi_move.effects = [triple_hit]
+	multi_move.attempts = 3
 
 	var single_move := MoveData.new()
 	single_move.display_name = "TestStrike"
@@ -562,7 +558,7 @@ func _test_multi_hit_effect_deals_multiple_hits() -> void:
 	var single_damage := 300 - single_defender.current_hp
 
 	_check(
-		"a 3-hit move deals noticeably more total damage than a 1-hit move of equal power (%d > %d)" % [multi_damage, single_damage],
+		"001400a: a 3-hit move deals noticeably more total damage than a 1-hit move of equal power (%d > %d)" % [multi_damage, single_damage],
 		multi_damage > single_damage * 2
 	)
 
@@ -570,7 +566,7 @@ func _test_multi_hit_effect_deals_multiple_hits() -> void:
 	# remaining hits, not deal damage to an already-downed combatant.
 	var frail_defender := _new_combatant("FrailDefender", 5, 10, 10, 10)
 	battle._resolve_attack(attacker, frail_defender, multi_move)
-	_check("a multi-hit move downs a frail target and stops there", frail_defender.is_downed())
+	_check("001400b: a multi-hit move downs a frail target and stops there", frail_defender.is_downed())
 
 	battle.queue_free()
 	await process_frame
@@ -580,7 +576,7 @@ func _test_multi_hit_effect_deals_multiple_hits() -> void:
 ## effect itself doesn't drive this helper -- it's called directly, same as
 ## MultiTargetEffect's own doc comment explains the action menu doesn't
 ## consult target_mode() yet).
-func _test_resolve_multi_target_attack_hits_all_living_targets() -> void:
+func _test001500_resolve_multi_target_attack_hits_all_living_targets() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -590,7 +586,7 @@ func _test_resolve_multi_target_attack_hits_all_living_targets() -> void:
 	move.power = 15
 	move.accuracy = 1.0
 	move.effects = [aoe]
-	_check("MultiTargetEffect reports target_mode all_enemies", aoe.target_mode() == "all_enemies")
+	_check("001500a: MultiTargetEffect reports target_mode all_enemies", aoe.target_mode() == "all_enemies")
 
 	var attacker := _new_combatant("Attacker", 100, 20, 10, 10)
 	var target_a := _new_combatant("TargetA", 100, 10, 10, 10)
@@ -601,9 +597,9 @@ func _test_resolve_multi_target_attack_hits_all_living_targets() -> void:
 	var targets: Array[Combatant] = [target_a, target_b, already_downed]
 	battle.resolve_multi_target_attack(attacker, targets, move)
 
-	_check("target A took damage from the AoE sweep", target_a.current_hp < 100)
-	_check("target B took damage from the AoE sweep", target_b.current_hp < 100)
-	_check("an already-downed target is skipped, not attacked again", already_downed.current_hp == 0)
+	_check("001500b: target A took damage from the AoE sweep", target_a.current_hp < 100)
+	_check("001500c: target B took damage from the AoE sweep", target_b.current_hp < 100)
+	_check("001500d: an already-downed target is skipped, not attacked again", already_downed.current_hp == 0)
 
 	battle.queue_free()
 	await process_frame
@@ -613,16 +609,15 @@ func _test_resolve_multi_target_attack_hits_all_living_targets() -> void:
 ## move whose effects include a MultiTargetEffect skips the target picker
 ## entirely and damages every living enemy, exercising the exact same path
 ## a player takes: Battle -> a move button -> (no target menu) -> resolved.
-func _test_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
+func _test001600_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
 	var battle := _load_battle()
 	await process_frame
 
-	var aoe := MultiTargetEffect.new()
 	var move := MoveData.new()
 	move.display_name = "GroupSweep"
 	move.power = 15
 	move.accuracy = 1.0
-	move.effects = [aoe]
+	move.target_all = true
 
 	var actor: Combatant = battle.player_party[0]
 	actor.data.assigned_moves = [move, move, move]
@@ -636,17 +631,17 @@ func _test_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
 	battle.action_menu.move1_button.pressed.emit()
 
 	_check(
-		"a multi-target move skips the target picker entirely",
+		"001600a: a multi-target move skips the target picker entirely",
 		not battle.action_menu.target_menu_scroll.visible
 	)
-	_check("action menu hides after an AoE move resolves", not battle.action_menu.visible)
-	_check("state returns to TICKING after an AoE move resolves", battle.state == battle.State.TICKING)
+	_check("001600b: action menu hides after an AoE move resolves", not battle.action_menu.visible)
+	_check("001600c: state returns to TICKING after an AoE move resolves", battle.state == battle.State.TICKING)
 
 	var all_hit := true
 	for i in battle.enemy_party.size():
 		if battle.enemy_party[i].current_hp >= hp_before[i]:
 			all_hit = false
-	_check("every living enemy took damage from the AoE move", all_hit)
+	_check("001600d: every living enemy took damage from the AoE move", all_hit)
 
 	battle.queue_free()
 	await process_frame
@@ -656,16 +651,15 @@ func _test_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
 ## resolve_multi_target_attack against the whole living player party,
 ## instead of the single randomly-picked target it uses for every other
 ## move.
-func _test_enemy_ai_uses_multi_target_move_on_all_players() -> void:
+func _test001700_enemy_ai_uses_multi_target_move_on_all_players() -> void:
 	var battle := _load_battle()
 	await process_frame
 
-	var aoe := MultiTargetEffect.new()
 	var move := MoveData.new()
 	move.display_name = "EnemySweep"
 	move.power = 15
 	move.accuracy = 1.0
-	move.effects = [aoe]
+	move.target_all = true
 
 	var actor: Combatant = battle.enemy_party[0]
 	actor.data.assigned_moves = [move]
@@ -680,8 +674,8 @@ func _test_enemy_ai_uses_multi_target_move_on_all_players() -> void:
 	for i in battle.player_party.size():
 		if battle.player_party[i].current_hp >= hp_before[i]:
 			all_hit = false
-	_check("enemy AI's multi-target move damages every living player-party member", all_hit)
-	_check("state returns to TICKING after the enemy's AoE turn", battle.state == battle.State.TICKING)
+	_check("001700a: enemy AI's multi-target move damages every living player-party member", all_hit)
+	_check("001700b: state returns to TICKING after the enemy's AoE turn", battle.state == battle.State.TICKING)
 
 	battle.queue_free()
 	await process_frame
@@ -693,16 +687,16 @@ func _test_enemy_ai_uses_multi_target_move_on_all_players() -> void:
 ## hand back the same MonsterData object twice). Mutates one party's
 ## Emberkit and confirms a second, independently-fetched party's Emberkit
 ## is unaffected.
-func _test_placeholder_battle_data_returns_independent_instances() -> void:
+func _test001800_placeholder_battle_data_returns_independent_instances() -> void:
 	var party_a := PlaceholderBattleData.get_player_party()
 	var party_b := PlaceholderBattleData.get_player_party()
 
 	party_a[0].level = 99
 	_check(
-		"mutating one get_player_party() call's Emberkit doesn't affect a second call's Emberkit",
+		"001800a: mutating one get_player_party() call's Emberkit doesn't affect a second call's Emberkit",
 		party_b[0].level != 99
 	)
-	_check("both calls still return the expected 4-monster party", party_a.size() == 4 and party_b.size() == 4)
+	_check("001800b: both calls still return the expected 4-monster party", party_a.size() == 4 and party_b.size() == 4)
 
 ## New 2026-09-03: verifies Combatant.effective_speed() actually applies
 ## the SPEED_REFERENCE tanh curve rather than staying flat `speed *
@@ -716,7 +710,7 @@ func _test_placeholder_battle_data_returns_independent_instances() -> void:
 ## check, (3) effective speed always stays strictly below SPEED_REFERENCE
 ## no matter how high the base stat goes, confirming it's a true
 ## asymptotic cap and not just a slower linear climb.
-func _test_effective_speed_has_diminishing_returns() -> void:
+func _test001900_effective_speed_has_diminishing_returns() -> void:
 	var low_slow := _new_combatant("LowSlow", 100, 10, 10, 10)
 	var low_fast := _new_combatant("LowFast", 100, 10, 10, 20)
 	var high_slow := _new_combatant("HighSlow", 100, 10, 10, 100)
@@ -733,35 +727,35 @@ func _test_effective_speed_has_diminishing_returns() -> void:
 	var high_ratio: float = high_fast.effective_speed() / high_slow.effective_speed()
 
 	_check(
-		"doubling a low speed stat (10->20) nearly doubles effective speed (ratio %.3f)" % low_ratio,
+		"001900a: doubling a low speed stat (10->20) nearly doubles effective speed (ratio %.3f)" % low_ratio,
 		low_ratio > 1.85
 	)
 	_check(
-		"doubling a high speed stat (100->200) does NOT nearly double effective speed (ratio %.3f)" % high_ratio,
+		"001900b: doubling a high speed stat (100->200) does NOT nearly double effective speed (ratio %.3f)" % high_ratio,
 		high_ratio < 1.2
 	)
 	_check(
-		"doubling at the high end gains far less than doubling at the low end (%.3f < %.3f)" % [high_ratio, low_ratio],
+		"001900c: doubling at the high end gains far less than doubling at the low end (%.3f < %.3f)" % [high_ratio, low_ratio],
 		high_ratio < low_ratio
 	)
 	_check(
-		"even an absurdly high speed stat stays strictly under SPEED_REFERENCE",
+		"001900d: even an absurdly high speed stat stays strictly under SPEED_REFERENCE",
 		extreme.effective_speed() < Combatant.SPEED_REFERENCE
 	)
 
 ## New 2026-09-01: verifies tick_stat_modifiers() actually decays and
 ## removes an expired modifier, and that Combatant.effective_defense()
 ## returns to the unmodified base stat once it's gone.
-func _test_stat_modifier_expires_after_duration() -> void:
+func _test002000_stat_modifier_expires_after_duration() -> void:
 	var defender := _new_combatant("Defender", 100, 10, 10, 10)
 	defender.apply_stat_modifier("Defense", -1, 1)
-	_check("modifier is active immediately after being applied", defender.stat_modifiers.has("Defense"))
+	_check("002000a: modifier is active immediately after being applied", defender.stat_modifiers.has("Defense"))
 
 	defender.tick_stat_modifiers()
-	_check("a 1-turn modifier is gone after a single tick", not defender.stat_modifiers.has("Defense"))
-	_check("effective_defense() returns to the base stat once the modifier expires", defender.effective_defense() == 10.0)
+	_check("002000b: a 1-turn modifier is gone after a single tick", not defender.stat_modifiers.has("Defense"))
+	_check("002000c: effective_defense() returns to the base stat once the modifier expires", defender.effective_defense() == 10.0)
 
-func _test_win_detection() -> void:
+func _test002100_win_detection() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -777,26 +771,26 @@ func _test_win_detection() -> void:
 		c.apply_damage(9999)
 
 	var result: bool = battle._check_battle_over()
-	_check("_check_battle_over reports true once the enemy party is downed", result)
-	_check("state becomes BATTLE_OVER on a win", battle.state == battle.State.BATTLE_OVER)
-	_check("battle_won signal fired", won[0])
+	_check("002100a: _check_battle_over reports true once the enemy party is downed", result)
+	_check("002100b: state becomes BATTLE_OVER on a win", battle.state == battle.State.BATTLE_OVER)
+	_check("002100c: battle_won signal fired", won[0])
 
 	battle.queue_free()
 	await process_frame
 
-func _test_run_flees() -> void:
+func _test002200_run_flees() -> void:
 	var battle := _load_battle()
 	await process_frame
 
-	var fled := [false]  # see the mutable-box note in _test_win_detection
+	var fled := [false]  # see the mutable-box note in _test002100_win_detection
 	battle.battle_fled.connect(func(): fled[0] = true)
 
 	var actor: Combatant = battle.player_party[0]
 	battle._start_turn(actor)
 	battle.action_menu.run_button.pressed.emit()
 
-	_check("battle_fled signal fired on Run", fled[0])
-	_check("state becomes BATTLE_OVER after fleeing", battle.state == battle.State.BATTLE_OVER)
+	_check("002200a: battle_fled signal fired on Run", fled[0])
+	_check("002200b: state becomes BATTLE_OVER after fleeing", battle.state == battle.State.BATTLE_OVER)
 
 	battle.queue_free()
 	await process_frame
