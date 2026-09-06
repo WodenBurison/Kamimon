@@ -190,7 +190,7 @@ func _on_move_selected(move_index: int, target_index: int) -> void:
 	
 
 ## Counterpart to _on_move_selected for a move BattleActionMenu identified
-## as hitting every living enemy (MoveData.targets_all_enemies()) -- no
+## as hitting every living enemy (MoveData.()) -- no
 ## target_index involved, there was nothing to pick between.
 func _on_move_selected_all_enemies(move_index: int) -> void:
 	if state != State.PLAYER_INPUT:
@@ -229,7 +229,7 @@ func _resolve_player_action(move: MoveData, target_index: int) -> void:
 	_after_action()
 
 ## Counterpart to _resolve_player_action for a move that hits every living
-## enemy at once (see MoveData.targets_all_enemies()) -- resolves against
+## enemy at once (see MoveData.()) -- resolves against
 ## the whole living enemy party via resolve_multi_target_attack() instead
 ## of a single picked target.
 func _resolve_player_aoe_action(move: MoveData) -> void:
@@ -260,7 +260,7 @@ func _start_enemy_turn(actor: Combatant) -> void:
 		var target: Combatant = targets[randi() % targets.size()]
 		var moves := actor.data.assigned_moves
 		var move: MoveData = moves[randi() % moves.size()] if not moves.is_empty() else _basic_attack_move()
-		if move.targets_all_enemies():
+		if move.target_all:
 			resolve_multi_target_attack(actor, targets, move)
 		else:
 			_resolve_attack(actor, target, move)
@@ -343,7 +343,7 @@ func _compute_crit_chance(attacker: Combatant) -> float:
 ## one `defender` passed in -- resolve_multi_target_attack() below is the
 ## "hit everyone" case, and both the player action menu
 ## (_on_move_selected_all_enemies) and enemy-turn AI (_start_enemy_turn)
-## route a MoveData.targets_all_enemies() move there automatically as of
+## route a MoveData.() move there automatically as of
 ## 2026-09-02, see MultiTargetEffect's doc comment.
 func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -> void:
 	var hits := _hit_count(move)
@@ -360,7 +360,7 @@ func _hit_count(move: MoveData) -> int:
 ## Resolves `move` against every living entry in `targets` in turn (each
 ## target gets the full _resolve_attack treatment, multi-hit included, on
 ## its own -- one target going down doesn't affect the others). Called
-## automatically for a MoveData.targets_all_enemies() move by both
+## automatically for a MoveData.() move by both
 ## _on_move_selected_all_enemies (player) and _start_enemy_turn (AI) as of
 ## 2026-09-02 -- see MultiTargetEffect's doc comment.
 func resolve_multi_target_attack(attacker: Combatant, targets: Array[Combatant], move: MoveData) -> void:

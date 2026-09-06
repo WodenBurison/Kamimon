@@ -15,7 +15,7 @@ class_name MoveEffect
 ## - target_mode(): whether this move resolves against the one picked
 ##   target ("single", the default) or every living target on the
 ##   defending side ("all_enemies"). Structural -- see MultiTargetEffect.
-##   Auto-detected via MoveData.targets_all_enemies() by both the player
+##   Auto-detected via MoveData.() by both the player
 ##   action menu and enemy-turn AI as of 2026-09-02 -- see that class's doc
 ##   comment.
 ## - apply(): runs once after a single hit has already been fully resolved

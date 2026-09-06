@@ -8,7 +8,7 @@ class_name BattleActionMenu
 ## Attack, Guard, and the acting monster's three out-of-battle-assigned
 ## moves. Attack/moves that have more than one living enemy target prompt a
 ## target picker; a single living target is auto-selected. A move whose
-## effects mark it as hitting every enemy (MoveData.targets_all_enemies(),
+## effects mark it as hitting every enemy (MoveData.(),
 ## added 2026-09-02) skips the picker entirely — it emits
 ## move_selected_all_enemies instead of move_selected, no target_index
 ## involved. Items and Stats are look-only for now — Items has no item
@@ -137,7 +137,7 @@ func _on_move_button_pressed(move_index: int) -> void:
 		return
 	_pending_action = "move"
 	_pending_move_index = move_index
-	if _actor_moves[move_index].targets_all_enemies():
+	if _actor_moves[move_index].target_all:
 		_confirm_all_enemies()
 		return
 	if _actor_moves[move_index].random_target == true:
@@ -207,7 +207,7 @@ func _confirm_random_target() -> void:
 	
 
 ## Skips the target picker entirely for a move that hits every living enemy
-## (see MoveData.targets_all_enemies()) -- there's nothing to pick between.
+## (see MoveData.()) -- there's nothing to pick between.
 ## Still respects the same "no living enemies, no-op" guard the normal
 ## target menu enforces via _open_target_menu's own living-list check.
 func _confirm_all_enemies() -> void:
