@@ -1,27 +1,20 @@
 extends Control
 class_name BattleActionMenu
 ## Presents the player's battle choices and reports the result back through
-## signals — this never touches Combatant/BattleManager state directly, it
+## signals -- this never touches Combatant/BattleManager state directly, it
 ## only knows about moves/party-status handed to it via open().
 ##
 ## Menu shape: Battle / Items / Stats / Run at the top level. Battle opens
 ## Attack, Guard, and the acting monster's three out-of-battle-assigned
-## moves. Attack/moves that have more than one living enemy target prompt a
-## target picker; a single living target is auto-selected. A move whose
-## effects mark it as hitting every enemy (MoveData.(),
-## added 2026-09-02) skips the picker entirely — it emits
-## move_selected_all_enemies instead of move_selected, no target_index
-## involved. Items and Stats are look-only for now — Items has no item
-## system to back it yet (stub), and Stats is a read-only party status
+## moves. A move with target_all skips the target picker and hits every
+## living enemy; a move with random_target skips it and hits one random
+## living enemy; otherwise a target picker opens (auto-skipped when only
+## one enemy is alive). Items and Stats are look-only for now -- Items has
+## no item system to back it yet (stub), Stats is a read-only party status
 ## readout. Neither consumes a turn.
 ##
-## Each of the 5 sub-menus lives inside its own ScrollContainer (RootMenu is
-## the only one that's always a fixed 4 buttons; the rest can grow — Battle
-## always has 6, Target scales with living enemies up to 4, Stats lists
-## every combatant on both sides). That's a deliberate safety net: rather
-## than hand-tuning ActionMenu's pixel size to whatever happens to fit
-## today's button count, anything that doesn't fit just scrolls instead of
-## silently running off the bottom of the screen.
+## Each of the 5 sub-menus lives inside its own ScrollContainer so a full
+## button list scrolls instead of running off the screen.
 
 signal attack_selected(target_index: int)
 signal guard_selected
@@ -66,6 +59,9 @@ var _enemy_status: Array[Dictionary] = []
 var _pending_action := ""
 var _pending_move_index := -1
 
+## Called from: Godot itself, automatically, when this node enters the
+## scene tree.
+## Purpose: wires every button's pressed signal to its handler.
 func _ready() -> void:
 	battle_button.pressed.connect(func(): _show_only(battle_menu_scroll))
 	items_button.pressed.connect(func(): _show_only(items_menu_scroll))
@@ -85,11 +81,9 @@ func _ready() -> void:
 
 	hide_all()
 
-## Opens the top-level menu for whichever combatant's turn it is. moves is
-## that combatant's assigned loadout (expected up to 3 — fewer shows
-## disabled "--" slots). own_status/enemy_status are plain Dictionaries
-## ({name, hp, max_hp, is_downed}) for the acting side and the opposing
-## side, used to build the target picker and the Stats readout.
+## Called from: battle_manager.gd, when a combatant's turn starts.
+## Purpose: shows the root menu for the acting combatant, loaded with
+## their 3 assigned moves and both parties' status.
 func open(moves: Array[MoveData], own_status: Array[Dictionary], enemy_status: Array[Dictionary]) -> void:
 	_actor_moves = moves
 	_own_status = own_status
@@ -101,9 +95,15 @@ func open(moves: Array[MoveData], own_status: Array[Dictionary], enemy_status: A
 	_show_only(root_menu_scroll)
 	show()
 
+## Called from: battle_manager.gd, after every resolved action (attack,
+## guard, move, run) to close the menu until the next turn.
+## Purpose: hides the whole menu.
 func hide_all() -> void:
 	hide()
 
+## Called from: internal only -- every "show this sub-menu, hide the
+## rest" spot in this file (button handlers, open(), back buttons).
+## Purpose: shows exactly one of the 5 sub-menus, hides the other 4.
 func _show_only(menu: Control) -> void:
 	root_menu_scroll.hide()
 	battle_menu_scroll.hide()
@@ -112,6 +112,9 @@ func _show_only(menu: Control) -> void:
 	stats_menu_scroll.hide()
 	menu.show()
 
+## Called from: internal only -- open().
+## Purpose: sets each of the 3 move buttons' label/disabled state to
+## match the acting combatant's actual assigned moves.
 func _refresh_battle_menu_labels() -> void:
 	var slots := [move1_button, move2_button, move3_button]
 	for i in slots.size():
@@ -123,15 +126,24 @@ func _refresh_battle_menu_labels() -> void:
 			button.text = "--"
 			button.disabled = true
 
+## Called from: attack_button's pressed signal (wired in _ready()).
+## Purpose: starts the Attack flow -- opens the target picker.
 func _on_attack_button_pressed() -> void:
 	_pending_action = "attack"
 	_pending_move_index = -1
 	_open_target_menu()
 
+## Called from: guard_button's pressed signal (wired in _ready()).
+## Purpose: Guard doesn't need a target, so this fires the signal and
+## closes the menu immediately.
 func _on_guard_button_pressed() -> void:
 	guard_selected.emit()
 	hide_all()
 
+## Called from: move1/move2/move3_button's pressed signal, each bound
+## with its index (wired in _ready()).
+## Purpose: routes to the right targeting flow for the chosen move --
+## every enemy, one random enemy, or the normal target picker.
 func _on_move_button_pressed(move_index: int) -> void:
 	if move_index >= _actor_moves.size():
 		return
@@ -145,14 +157,23 @@ func _on_move_button_pressed(move_index: int) -> void:
 		return
 	_open_target_menu()
 
+## Called from: run_button's pressed signal (wired in _ready()).
+## Purpose: Run doesn't need a target, fires the signal and closes.
 func _on_run_button_pressed() -> void:
 	run_selected.emit()
 	hide_all()
 
+## Called from: stats_button's pressed signal (wired in _ready()).
+## Purpose: rebuilds the stats readout (HP can have changed since it was
+## last shown) and switches to it.
 func _on_stats_button_pressed() -> void:
 	_build_stats_menu()
 	_show_only(stats_menu_scroll)
 
+## Called from: internal only -- _open_target_menu(),
+## _confirm_random_target(), _confirm_all_enemies().
+## Purpose: returns the indices into _enemy_status of every enemy that
+## isn't downed.
 func _living_enemy_indices() -> Array[int]:
 	var out: Array[int] = []
 	for i in _enemy_status.size():
@@ -160,6 +181,11 @@ func _living_enemy_indices() -> Array[int]:
 			out.append(i)
 	return out
 
+## Called from: internal only -- _on_attack_button_pressed(), and
+## _on_move_button_pressed()'s fallback for a move that's neither
+## target_all nor random_target.
+## Purpose: opens the target picker, unless there are 0 living enemies
+## (no-op) or exactly 1 (auto-picked, no menu needed).
 func _open_target_menu() -> void:
 	var living := _living_enemy_indices()
 	if living.is_empty():
@@ -171,6 +197,8 @@ func _open_target_menu() -> void:
 	_build_target_menu(living)
 	_show_only(target_menu_scroll)
 
+## Called from: internal only -- _open_target_menu().
+## Purpose: builds one button per living enemy in the target menu.
 func _build_target_menu(living: Array[int]) -> void:
 	for child in target_menu.get_children():
 		if child != target_back_button:
@@ -183,6 +211,11 @@ func _build_target_menu(living: Array[int]) -> void:
 		target_menu.add_child(button)
 	target_menu.move_child(target_back_button, target_menu.get_child_count() - 1)
 
+## Called from: internal only -- each target-menu button's pressed
+## signal (bound in _build_target_menu()), and directly by
+## _open_target_menu() when there's exactly one living enemy.
+## Purpose: closes the menu and fires attack_selected or move_selected
+## with whichever target got picked.
 func _confirm_target(target_index: int) -> void:
 	var action := _pending_action
 	var move_index := _pending_move_index
@@ -194,6 +227,12 @@ func _confirm_target(target_index: int) -> void:
 	elif action == "move":
 		move_selected.emit(move_index, target_index)
 
+## Called from: internal only -- _on_move_button_pressed(), for a move
+## with random_target true.
+## Purpose: closes the menu and fires move_selected_random against one
+## randomly-chosen living enemy -- resolved here, not left to
+## battle_manager.gd, so the target index is already final by the time
+## the signal goes out.
 func _confirm_random_target() -> void:
 	var move_index := _pending_move_index
 	_pending_action = ""
@@ -204,12 +243,12 @@ func _confirm_random_target() -> void:
 		return
 	var enemy_chosen: int = enemy_choices.pick_random()
 	move_selected_random.emit(move_index, enemy_chosen)
-	
 
-## Skips the target picker entirely for a move that hits every living enemy
-## (see MoveData.()) -- there's nothing to pick between.
-## Still respects the same "no living enemies, no-op" guard the normal
-## target menu enforces via _open_target_menu's own living-list check.
+
+## Called from: internal only -- _on_move_button_pressed(), for a move
+## with target_all true.
+## Purpose: closes the menu and fires move_selected_all_enemies --
+## nothing to pick, so there's no target_index in the signal.
 func _confirm_all_enemies() -> void:
 	var move_index := _pending_move_index
 	_pending_action = ""
@@ -219,11 +258,17 @@ func _confirm_all_enemies() -> void:
 		return
 	move_selected_all_enemies.emit(move_index)
 
+## Called from: target_back_button's pressed signal (wired in _ready()).
+## Purpose: cancels the pending attack/move and returns to the Battle
+## menu.
 func _on_target_back_pressed() -> void:
 	_pending_action = ""
 	_pending_move_index = -1
 	_show_only(battle_menu_scroll)
 
+## Called from: open() and _on_stats_button_pressed().
+## Purpose: rebuilds the Stats sub-menu's list of every combatant on
+## both sides.
 func _build_stats_menu() -> void:
 	for child in stats_menu.get_children():
 		if child != stats_back_button:
@@ -236,11 +281,16 @@ func _build_stats_menu() -> void:
 		_add_stats_line(entry)
 	stats_menu.move_child(stats_back_button, stats_menu.get_child_count() - 1)
 
+## Called from: internal only -- _build_stats_menu().
+## Purpose: adds a section header label ("Your party:" / "Enemy
+## party:").
 func _add_stats_header(text: String) -> void:
 	var label := Label.new()
 	label.text = text
 	stats_menu.add_child(label)
 
+## Called from: internal only -- _build_stats_menu().
+## Purpose: adds one combatant's HP/downed-status line.
 func _add_stats_line(entry: Dictionary) -> void:
 	var label := Label.new()
 	var tag := " (downed)" if entry["is_downed"] else ""

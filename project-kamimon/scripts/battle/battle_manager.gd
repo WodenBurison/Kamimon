@@ -81,6 +81,10 @@ var ready_queue: Array[Combatant] = []
 var _current_actor: Combatant = null
 var state: State = State.TICKING
 
+## Called from: Godot itself, automatically, when this node enters the
+## scene tree.
+## Purpose: builds both parties/sprites, wires every action-menu signal to
+## its handler, and starts the battle ticking.
 func _ready() -> void:
 	hud = get_node(hud_path)
 	action_menu = get_node(action_menu_path)
@@ -101,18 +105,24 @@ func _ready() -> void:
 	action_menu.hide_all()
 	state = State.TICKING
 
+## Called from: internal only -- _ready().
+## Purpose: builds player_party/enemy_party from PlaceholderBattleData.
 func _build_parties() -> void:
 	for monster in PlaceholderBattleData.get_player_party():
 		player_party.append(Combatant.new(monster))
 	for monster in PlaceholderBattleData.get_enemy_party():
 		enemy_party.append(Combatant.new(monster))
 
+## Called from: internal only -- _ready().
+## Purpose: builds both sprite rows from the just-built parties.
 func _build_sprites() -> void:
 	player_sprites = _build_sprite_row(player_battler_container, player_party, -1)
 	enemy_sprites = _build_sprite_row(enemy_battler_container, enemy_party, 1)
 
 ## direction is -1 for the player's row (fans left of its anchor) and 1 for
 ## the enemy row (fans right), so both rows spread away from the middle.
+## Called from: internal only -- _build_sprites(), once per side.
+## Purpose: creates and positions one Sprite2D per combatant in a party.
 func _build_sprite_row(container: Node2D, party: Array[Combatant], direction: int) -> Array[Sprite2D]:
 	var sprites: Array[Sprite2D] = []
 	for i in party.size():
@@ -124,6 +134,9 @@ func _build_sprite_row(container: Node2D, party: Array[Combatant], direction: in
 		sprites.append(sprite)
 	return sprites
 
+## Called from: Godot itself, every frame.
+## Purpose: while TICKING, advances every gauge, refreshes the HUD, and
+## starts the next ready combatant's turn.
 func _process(delta: float) -> void:
 	if state != State.TICKING:
 		return
@@ -133,12 +146,16 @@ func _process(delta: float) -> void:
 	if not ready_queue.is_empty():
 		_start_turn(ready_queue.pop_front())
 
+## Called from: internal only -- _process().
+## Purpose: advances every combatant's ATB gauge by delta.
 func _tick_all(delta: float) -> void:
 	for c in player_party:
 		c.tick(delta)
 	for c in enemy_party:
 		c.tick(delta)
 
+## Called from: internal only -- _process().
+## Purpose: queues up any combatant whose gauge just became full.
 func _collect_ready() -> void:
 	for c in player_party:
 		if c.is_ready() and not c.is_downed() and not (c in ready_queue):
@@ -147,6 +164,11 @@ func _collect_ready() -> void:
 		if c.is_ready() and not c.is_downed() and not (c in ready_queue):
 			ready_queue.append(c)
 
+## Called from: internal -- _process(), when a combatant becomes ready.
+## Also called directly by battle_smoke_test.gd to force a turn without
+## waiting on real gauge fill.
+## Purpose: resets the acting combatant's gauge/guard/stat-modifier timers
+## and routes to the player or enemy turn flow.
 func _start_turn(actor: Combatant) -> void:
 	if actor.is_downed():
 		return
@@ -159,11 +181,17 @@ func _start_turn(actor: Combatant) -> void:
 	else:
 		_start_enemy_turn(actor)
 
+## Called from: internal only -- _start_turn().
+## Purpose: switches to PLAYER_INPUT and opens the action menu for the
+## acting combatant.
 func _start_player_turn(actor: Combatant) -> void:
 	state = State.PLAYER_INPUT
 	message_label.text = "%s is ready to act!" % actor.data.display_name
 	action_menu.open(actor.data.assigned_moves, _party_status(player_party), _party_status(enemy_party))
 
+## Called from: internal only -- _start_player_turn(), once for each side.
+## Purpose: builds the plain-Dictionary status list the action menu uses
+## for its target picker and Stats readout.
 func _party_status(party: Array[Combatant]) -> Array[Dictionary]:
 	var status: Array[Dictionary] = []
 	for c in party:
@@ -175,11 +203,19 @@ func _party_status(party: Array[Combatant]) -> Array[Dictionary]:
 		})
 	return status
 
+## Called from: action_menu.attack_selected signal (connected in _ready()).
+## Purpose: resolves the universal basic Attack against the picked target.
 func _on_attack_selected(target_index: int) -> void:
 	if state != State.PLAYER_INPUT:
 		return
 	_resolve_player_action(_basic_attack_move(), target_index)
 
+## Called from: action_menu.move_selected AND move_selected_random signals
+## (both connected in _ready()) -- random_target resolves its own target
+## before emitting, so this handler doesn't need to know which signal
+## fired.
+## Purpose: resolves one of the acting combatant's 3 assigned moves
+## against the picked (or auto-picked) target.
 func _on_move_selected(move_index: int, target_index: int) -> void:
 	if state != State.PLAYER_INPUT:
 		return
@@ -187,11 +223,12 @@ func _on_move_selected(move_index: int, target_index: int) -> void:
 	if move_index < 0 or move_index >= moves.size():
 		return
 	_resolve_player_action(moves[move_index], target_index)
-	
 
-## Counterpart to _on_move_selected for a move BattleActionMenu identified
-## as hitting every living enemy (MoveData.()) -- no
-## target_index involved, there was nothing to pick between.
+
+## Called from: action_menu.move_selected_all_enemies signal (connected in
+## _ready()).
+## Purpose: counterpart to _on_move_selected for a move with target_all
+## true -- no target_index, since there's nothing to pick.
 func _on_move_selected_all_enemies(move_index: int) -> void:
 	if state != State.PLAYER_INPUT:
 		return
@@ -200,6 +237,9 @@ func _on_move_selected_all_enemies(move_index: int) -> void:
 		return
 	_resolve_player_aoe_action(moves[move_index])
 
+## Called from: action_menu.guard_selected signal (connected in _ready()).
+## Purpose: applies Guard's damage-halving to the acting combatant and
+## ends the turn.
 func _on_guard_selected() -> void:
 	if state != State.PLAYER_INPUT:
 		return
@@ -210,6 +250,8 @@ func _on_guard_selected() -> void:
 
 ## Flee is unconditional for the prototype — no escape-chance formula exists
 ## yet, so Run always succeeds and ends the battle immediately.
+## Called from: action_menu.run_selected signal (connected in _ready()).
+## Purpose: unconditionally ends the battle.
 func _on_run_selected() -> void:
 	if state != State.PLAYER_INPUT:
 		return
@@ -218,6 +260,10 @@ func _on_run_selected() -> void:
 	action_menu.hide_all()
 	battle_fled.emit()
 
+## Called from: internal only -- _on_attack_selected(), _on_move_selected().
+## Purpose: resolves a single-target move/attack against
+## enemy_party[target_index], or no-ops if that target is invalid/already
+## downed.
 func _resolve_player_action(move: MoveData, target_index: int) -> void:
 	if target_index < 0 or target_index >= enemy_party.size() or enemy_party[target_index].is_downed():
 		action_menu.hide_all()
@@ -228,10 +274,10 @@ func _resolve_player_action(move: MoveData, target_index: int) -> void:
 	action_menu.hide_all()
 	_after_action()
 
-## Counterpart to _resolve_player_action for a move that hits every living
-## enemy at once (see MoveData.()) -- resolves against
-## the whole living enemy party via resolve_multi_target_attack() instead
-## of a single picked target.
+## Called from: internal only -- _on_move_selected_all_enemies().
+## Purpose: counterpart to _resolve_player_action for a target_all move --
+## resolves against every living enemy via resolve_multi_target_attack()
+## instead of one picked target.
 func _resolve_player_aoe_action(move: MoveData) -> void:
 	var targets := _living(enemy_party)
 	if targets.is_empty():
@@ -243,12 +289,20 @@ func _resolve_player_aoe_action(move: MoveData) -> void:
 	action_menu.hide_all()
 	_after_action()
 
+## Called from: internal only -- _on_guard_selected(), _resolve_player_action(),
+## _resolve_player_aoe_action(), _start_enemy_turn().
+## Purpose: clears the current actor and either ends the battle or returns
+## to TICKING.
 func _after_action() -> void:
 	_current_actor = null
 	if _check_battle_over():
 		return
 	state = State.TICKING
 
+## Called from: internal only -- _start_turn(), for a non-player actor.
+## Purpose: the enemy AI -- picks a random living player target and a
+## random assigned move, then resolves it (against everyone if the move
+## is target_all).
 func _start_enemy_turn(actor: Combatant) -> void:
 	state = State.RESOLVING
 	var targets := _living(player_party)
@@ -266,6 +320,9 @@ func _start_enemy_turn(actor: Combatant) -> void:
 			_resolve_attack(actor, target, move)
 	_after_action()
 
+## Called from: internal only -- _resolve_player_aoe_action(),
+## _start_enemy_turn().
+## Purpose: returns every non-downed combatant in a party.
 func _living(party: Array[Combatant]) -> Array[Combatant]:
 	var out: Array[Combatant] = []
 	for c in party:
@@ -273,6 +330,10 @@ func _living(party: Array[Combatant]) -> Array[Combatant]:
 			out.append(c)
 	return out
 
+## Called from: internal only -- _on_attack_selected(), _start_enemy_turn()
+## (fallback when a combatant has no assigned moves).
+## Purpose: builds the universal basic Attack move -- not a real MoveData
+## resource anywhere, just a plain default.
 func _basic_attack_move() -> MoveData:
 	var move := MoveData.new()
 	move.display_name = "Attack"
@@ -288,6 +349,9 @@ func _basic_attack_move() -> MoveData:
 ## super/not-very-effective message below); _resolve_attack still applies
 ## post-formula hit-variance and guard halving itself, same as before this
 ## migration.
+## Called from: internal -- _resolve_single_hit(). Also called directly by
+## battle_smoke_test.gd to check the formula in isolation.
+## Purpose: computes final damage from the 5-factor formula.
 func _compute_damage(attacker: Combatant, defender: Combatant, move: MoveData) -> Dictionary:
 	var gap: float = attacker.data.level - defender.data.level
 	var level_factor: float = pow(LEVEL_CAP, tanh(gap / LEVEL_STEEPNESS))
@@ -313,6 +377,10 @@ func _compute_damage(attacker: Combatant, defender: Combatant, move: MoveData) -
 ## same bounded cap^ratio shape as the rest of the formula, then floors it
 ## so no matchup can ever guarantee a miss. See the ACC_EVA_CAP doc comment
 ## above for why the ceiling isn't similarly restrictive.
+## Called from: internal -- _resolve_single_hit(). Also called directly by
+## battle_smoke_test.gd.
+## Purpose: computes the actual hit chance for one move against one
+## defender.
 func _compute_hit_chance(attacker: Combatant, defender: Combatant, move: MoveData) -> float:
 	var acc: float = attacker.effective_accuracy()
 	var eva: float = defender.effective_evasion()
@@ -326,6 +394,9 @@ func _compute_hit_chance(attacker: Combatant, defender: Combatant, move: MoveDat
 ## family). No opposing "crit resist" stat exists in the locked design, so
 ## the attacker's Crit stat is compared against CRIT_STAT_REFERENCE instead
 ## of a defender stat. Hard-clamped so a crit is never guaranteed.
+## Called from: internal -- _resolve_single_hit(). Also called directly by
+## battle_smoke_test.gd.
+## Purpose: computes an attacker's crit chance for the current hit.
 func _compute_crit_chance(attacker: Combatant) -> float:
 	var stat: float = attacker.effective_crit_stat()
 	var ratio: float = 0.0
@@ -334,17 +405,12 @@ func _compute_crit_chance(attacker: Combatant) -> float:
 	var modifier: float = pow(CRIT_CAP, ratio)
 	return clamp(BASE_CRIT_CHANCE * modifier, 0.0, MAX_CRIT_CHANCE)
 
-## Top-level single-target entry point (2026-09-01 refactor): resolves the
-## move's normal single-hit resolution against `defender` once per
-## MultiHitEffect.hit_count() (1 for every move without one -- see
-## MoveEffect's doc comment), stopping early if `defender` goes down
-## partway through since there's nothing left to hit. For a move whose
-## effects include a MultiTargetEffect, this only ever resolves against the
-## one `defender` passed in -- resolve_multi_target_attack() below is the
-## "hit everyone" case, and both the player action menu
-## (_on_move_selected_all_enemies) and enemy-turn AI (_start_enemy_turn)
-## route a MoveData.() move there automatically as of
-## 2026-09-02, see MultiTargetEffect's doc comment.
+## Called from: internal -- resolve_multi_target_attack(),
+## _start_enemy_turn()'s single-target branch. Also called directly by
+## many tests in battle_smoke_test.gd.
+## Purpose: repeats a single-hit resolution move.attempts times against
+## one defender, stopping early if that defender goes down partway
+## through.
 func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -> void:
 	var hits := _hit_count(move)
 	for i in hits:
@@ -352,31 +418,28 @@ func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -
 			break
 		_resolve_single_hit(attacker, defender, move)
 
-## _hit_count resolves per defender
+## Called from: internal only -- _resolve_attack().
+## Purpose: how many times a move repeats against its target -- reads
+## move.attempts directly.
 func _hit_count(move: MoveData) -> int:
 	return move.attempts
-	
 
-## Resolves `move` against every living entry in `targets` in turn (each
-## target gets the full _resolve_attack treatment, multi-hit included, on
-## its own -- one target going down doesn't affect the others). Called
-## automatically for a MoveData.() move by both
-## _on_move_selected_all_enemies (player) and _start_enemy_turn (AI) as of
-## 2026-09-02 -- see MultiTargetEffect's doc comment.
+
+## Called from: internal -- _resolve_player_aoe_action(),
+## _start_enemy_turn()'s target_all branch. Also called directly by
+## battle_smoke_test.gd.
+## Purpose: runs _resolve_attack (multi-hit included) against every entry
+## in targets, skipping any that are already downed.
 func resolve_multi_target_attack(attacker: Combatant, targets: Array[Combatant], move: MoveData) -> void:
 	for target in targets:
 		if target.is_downed():
 			continue
 		_resolve_attack(attacker, target, move)
 
-## One full resolution of `move` against `defender`: hit-chance roll,
-## damage roll, crit roll, guard halving, HP applied, message written, then
-## every one of the move's effects gets its apply() hook called (a no-op
-## for anything that isn't a per-hit secondary effect, e.g. MultiHitEffect/
-## MultiTargetEffect -- their hooks are consulted elsewhere, not here).
-## Body is unchanged from the pre-refactor _resolve_attack, just renamed
-## and wrapped by the hit-count loop above -- RNG draw order per hit is
-## identical to before, so every existing seeded test still holds.
+## Called from: internal only -- _resolve_attack(), once per hit.
+## Purpose: one full hit -- hit-chance roll, damage roll, crit roll, guard
+## halving, HP applied, message written, then each of the move's effects
+## gets its apply() hook called.
 func _resolve_single_hit(attacker: Combatant, defender: Combatant, move: MoveData) -> void:
 	var hit_chance := _compute_hit_chance(attacker, defender, move)
 	if randf() > hit_chance:
@@ -406,6 +469,10 @@ func _resolve_single_hit(attacker: Combatant, defender: Combatant, move: MoveDat
 		effect.apply(attacker, defender, self)
 	_refresh_hud()
 
+## Called from: internal -- _after_action(). Also called directly by
+## battle_smoke_test.gd.
+## Purpose: checks whether either party is fully downed and ends the
+## battle if so.
 func _check_battle_over() -> bool:
 	if _all_downed(enemy_party):
 		state = State.BATTLE_OVER
@@ -419,17 +486,25 @@ func _check_battle_over() -> bool:
 		return true
 	return false
 
+## Called from: internal only -- _check_battle_over(), once per side.
+## Purpose: true if every combatant in a party is downed.
 func _all_downed(party: Array[Combatant]) -> bool:
 	for c in party:
 		if not c.is_downed():
 			return false
 	return true
 
+## Called from: internal only -- _process(), _resolve_single_hit(),
+## _ready().
+## Purpose: pushes both parties' current HP to the HUD and updates sprite
+## visibility.
 func _refresh_hud() -> void:
 	hud.update_party(player_party, false)
 	hud.update_party(enemy_party, true)
 	_refresh_sprite_visibility()
 
+## Called from: internal only -- _refresh_hud().
+## Purpose: dims a combatant's sprite once it's downed.
 func _refresh_sprite_visibility() -> void:
 	for i in player_sprites.size():
 		player_sprites[i].modulate = Color(1, 1, 1, 0.35) if player_party[i].is_downed() else Color(1, 1, 1, 1)
