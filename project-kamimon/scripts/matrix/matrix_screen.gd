@@ -39,6 +39,11 @@ const COLOR_LOCKED := Color(0.55, 0.55, 0.6)
 
 var _node_buttons: Dictionary = {} # MatrixNode -> Button
 
+## Called from: Godot itself, automatically, when this node enters the
+## scene tree (opening scenes/matrix/MatrixScreen.tscn directly -- this
+## scene isn't reached from the main game flow).
+## Purpose: resolves node references, builds the demo graph and monster
+## state, and draws the initial UI.
 func _ready() -> void:
 	edges_layer = get_node(edges_layer_path)
 	nodes_layer = get_node(nodes_layer_path)
@@ -62,6 +67,9 @@ func _ready() -> void:
 	_build_node_buttons()
 	_refresh_ui()
 
+## Called from: internal only -- _ready(), once.
+## Purpose: draws one line per graph edge, skipping duplicates (each edge
+## is stored on both endpoints' neighbors list).
 func _draw_edges() -> void:
 	var drawn := {}
 	for node in all_nodes:
@@ -77,6 +85,8 @@ func _draw_edges() -> void:
 			line.add_point(neighbor.position)
 			edges_layer.add_child(line)
 
+## Called from: internal only -- _draw_edges(), to dedupe each edge.
+## Purpose: a stable, order-independent key for one node pair.
 func _edge_key(a: MatrixNode, b: MatrixNode) -> String:
 	var id_a := a.get_instance_id()
 	var id_b := b.get_instance_id()
@@ -84,6 +94,9 @@ func _edge_key(a: MatrixNode, b: MatrixNode) -> String:
 		return "%d_%d" % [id_a, id_b]
 	return "%d_%d" % [id_b, id_a]
 
+## Called from: internal only -- _ready(), once.
+## Purpose: creates one clickable button per node, positioned at the
+## node's graph coordinates.
 func _build_node_buttons() -> void:
 	for node in all_nodes:
 		var button := Button.new()
@@ -96,6 +109,9 @@ func _build_node_buttons() -> void:
 		nodes_layer.add_child(button)
 		_node_buttons[node] = button
 
+## Called from: internal only -- _build_node_buttons().
+## Purpose: the single-character label shown on a node's button, per its
+## effect_type.
 func _node_label(node: MatrixNode) -> String:
 	match node.effect_type:
 		MatrixNode.EffectType.MOVE_UNLOCK:
@@ -105,6 +121,10 @@ func _node_label(node: MatrixNode) -> String:
 		_:
 			return "+"
 
+## Called from: each node button's pressed signal (bound in
+## _build_node_buttons()).
+## Purpose: attempts to move the monster onto the clicked node, posts a
+## message about the outcome, and refreshes the UI.
 func _on_node_pressed(node: MatrixNode) -> void:
 	var result := monster_state.move_to(node)
 	if result["success"]:
@@ -122,11 +142,18 @@ func _on_node_pressed(node: MatrixNode) -> void:
 				message_label.text = "Can't move there."
 	_refresh_ui()
 
+## Called from: grant_point_button's pressed signal (wired in _ready()).
+## Purpose: stand-in for a real level-up system -- grants 1 point on
+## demand and refreshes the UI.
 func _on_grant_point_pressed() -> void:
 	monster_state.grant_points(1)
 	message_label.text = "Gained 1 point. (Stand-in for a real level-up system.)"
 	_refresh_ui()
 
+## Called from: internal only -- _ready(), _on_node_pressed(),
+## _on_grant_point_pressed(), any time state changes.
+## Purpose: redraws the points/stat-bonus/moves-learned readouts and each
+## node button's color (current/unlocked/locked).
 func _refresh_ui() -> void:
 	points_label.text = "Points: %d" % monster_state.available_points
 

@@ -10,6 +10,8 @@ class_name PlaceholderMatrixData
 ## "build small sub-matrices, then link them together" idea is visible
 ## even at this scale.
 
+## Called from: internal only -- build(), once per START node.
+## Purpose: builds one MatrixNode with effect_type START.
 static func _make_start(node_name: String, pos: Vector2, tag: String) -> MatrixNode:
 	var node := MatrixNode.new()
 	node.display_name = node_name
@@ -18,6 +20,8 @@ static func _make_start(node_name: String, pos: Vector2, tag: String) -> MatrixN
 	node.effect_type = MatrixNode.EffectType.START
 	return node
 
+## Called from: internal only -- build(), once per stat-boost node.
+## Purpose: builds one MatrixNode with effect_type STAT_BOOST.
 static func _make_stat_node(node_name: String, pos: Vector2, tag: String, stat: String, amount: int) -> MatrixNode:
 	var node := MatrixNode.new()
 	node.display_name = node_name
@@ -28,6 +32,8 @@ static func _make_stat_node(node_name: String, pos: Vector2, tag: String, stat: 
 	node.stat_amount = amount
 	return node
 
+## Called from: internal only -- build(), once per move-unlock node.
+## Purpose: builds one MatrixNode with effect_type MOVE_UNLOCK.
 static func _make_move_node(node_name: String, pos: Vector2, tag: String, move: MoveData) -> MatrixNode:
 	var node := MatrixNode.new()
 	node.display_name = node_name
@@ -37,11 +43,17 @@ static func _make_move_node(node_name: String, pos: Vector2, tag: String, move: 
 	node.unlocked_move = move
 	return node
 
+## Called from: internal only -- build(), once per edge in the graph.
+## Purpose: links two nodes as neighbors, both directions.
 static func _link(a: MatrixNode, b: MatrixNode) -> void:
 	a.neighbors.append(b)
 	b.neighbors.append(a)
 
 ## Returns {"nodes": Array[MatrixNode], "start_node": MatrixNode}.
+## Called from: matrix_screen.gd's _ready(), once, to populate the
+## standalone matrix test harness.
+## Purpose: builds the whole hardcoded demo graph -- two small clusters
+## ("Fire" and "Water") bridged at one point.
 static func build() -> Dictionary:
 	var ember := MoveData.new()
 	ember.display_name = "Ember"

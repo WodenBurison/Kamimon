@@ -44,6 +44,7 @@ func _run_tests() -> void:
 	await _test001400_multi_hit_effect_deals_multiple_hits()
 	await _test001500_resolve_multi_target_attack_hits_all_living_targets()
 	await _test001600_multi_target_move_skips_picker_and_hits_all_enemies()
+	await _test001610_random_target_move_targets_randomly()
 	await _test001700_enemy_ai_uses_multi_target_move_on_all_players()
 	_test001800_placeholder_battle_data_returns_independent_instances()
 	_test001900_effective_speed_has_diminishing_returns()
@@ -526,12 +527,11 @@ func _test001300_move_effect_applies_stat_modifier_to_defender() -> void:
 	battle.queue_free()
 	await process_frame
 
-## New 2026-09-01: verifies MultiHitEffect actually makes _resolve_attack
-## hit multiple times -- a fixed-range (3-3, no randomness to fight) multi-
-## hit move against a plain single-hit move of identical power should deal
-## roughly 3x the damage (not exactly, since each hit rolls its own 0.9-1.1
-## variance independently -- checked with a wide tolerance band, not an
-## exact multiple).
+## Verifies MoveData.attempts actually makes _resolve_attack hit multiple
+## times -- a fixed 3-attempt move against a plain single-hit move of
+## identical power should deal roughly 3x the damage (not exactly, since
+## each hit rolls its own 0.9-1.1 variance independently -- checked with a
+## wide tolerance band, not an exact multiple).
 func _test001400_multi_hit_effect_deals_multiple_hits() -> void:
 	var battle := _load_battle()
 	await process_frame
@@ -571,22 +571,16 @@ func _test001400_multi_hit_effect_deals_multiple_hits() -> void:
 	battle.queue_free()
 	await process_frame
 
-## New 2026-09-01: verifies resolve_multi_target_attack hits every living
-## target and skips downed ones, using MultiTargetEffect-tagged move (the
-## effect itself doesn't drive this helper -- it's called directly, same as
-## MultiTargetEffect's own doc comment explains the action menu doesn't
-## consult target_mode() yet).
+## Verifies resolve_multi_target_attack hits every living target and skips
+## downed ones. Called directly here, independent of any move effect.
 func _test001500_resolve_multi_target_attack_hits_all_living_targets() -> void:
 	var battle := _load_battle()
 	await process_frame
 
-	var aoe := MultiTargetEffect.new()
 	var move := MoveData.new()
 	move.display_name = "Sweep"
 	move.power = 15
 	move.accuracy = 1.0
-	move.effects = [aoe]
-	_check("001500a: MultiTargetEffect reports target_mode all_enemies", aoe.target_mode() == "all_enemies")
 
 	var attacker := _new_combatant("Attacker", 100, 20, 10, 10)
 	var target_a := _new_combatant("TargetA", 100, 10, 10, 10)
@@ -604,11 +598,11 @@ func _test001500_resolve_multi_target_attack_hits_all_living_targets() -> void:
 	battle.queue_free()
 	await process_frame
 
-## New 2026-09-02: real UI-level check (button presses through
-## BattleActionMenu, not calling BattleManager methods directly) that a
-## move whose effects include a MultiTargetEffect skips the target picker
-## entirely and damages every living enemy, exercising the exact same path
-## a player takes: Battle -> a move button -> (no target menu) -> resolved.
+## Real UI-level check (button presses through BattleActionMenu, not
+## calling BattleManager methods directly) that a move with target_all
+## skips the target picker entirely and damages every living enemy,
+## exercising the exact same path a player takes: Battle -> a move button
+## -> (no target menu) -> resolved.
 func _test001600_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
 	var battle := _load_battle()
 	await process_frame
@@ -642,6 +636,44 @@ func _test001600_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
 		if battle.enemy_party[i].current_hp >= hp_before[i]:
 			all_hit = false
 	_check("001600d: every living enemy took damage from the AoE move", all_hit)
+
+	battle.queue_free()
+	await process_frame
+
+## Verifying a random target move actually targets randomly.
+func _test001610_random_target_move_targets_randomly() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var move := MoveData.new()
+	move.display_name = "RandomStrike"
+	move.power = 15
+	move.accuracy = 1.0
+	move.random_target = true
+
+	var actor: Combatant = battle.player_party[0]
+	actor.data.assigned_moves = [move, move, move]
+
+	var hp_before: Array[int] = []
+	for c in battle.enemy_party:
+		hp_before.append(c.current_hp)
+
+	battle._start_turn(actor)
+	battle.action_menu.battle_button.pressed.emit()
+	battle.action_menu.move1_button.pressed.emit()
+
+	_check(
+		"001610a: a random-target move skips the target picker entirely",
+		not battle.action_menu.target_menu_scroll.visible)
+	_check("001610b: action menu hides after an random-target move resolves", not battle.action_menu.visible)
+	_check("001610c: state returns to TICKING after an random-target move resolves", battle.state == battle.State.TICKING)
+
+	var targets_hit := 0
+	for i in battle.enemy_party.size():
+		if battle.enemy_party[i].current_hp < hp_before[i]:
+			targets_hit += 1
+
+	_check("001610d: only one living enemy took damage from the random-target move", targets_hit == 1)
 
 	battle.queue_free()
 	await process_frame

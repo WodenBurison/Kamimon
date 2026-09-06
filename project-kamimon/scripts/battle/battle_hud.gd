@@ -11,10 +11,16 @@ class_name BattleHUD
 var _player_rows: Array[Dictionary] = []
 var _enemy_rows: Array[Dictionary] = []
 
+## Called from: battle_manager.gd's start_battle(), once, right after both
+## parties are built.
+## Purpose: creates one name/HP-bar/ATB-bar row per combatant on each side.
 func build(player_party: Array[Combatant], enemy_party: Array[Combatant]) -> void:
 	_player_rows = _build_rows(player_party_panel, player_party.size())
 	_enemy_rows = _build_rows(enemy_party_panel, enemy_party.size())
 
+## Called from: internal only -- build().
+## Purpose: clears whatever rows a panel already has and builds `count`
+## fresh name/HP-bar/ATB-bar rows into it.
 func _build_rows(panel: VBoxContainer, count: int) -> Array[Dictionary]:
 	for child in panel.get_children():
 		child.queue_free()
@@ -35,6 +41,11 @@ func _build_rows(panel: VBoxContainer, count: int) -> Array[Dictionary]:
 		rows.append({"root": row, "name": name_label, "hp": hp_bar, "atb": atb_bar})
 	return rows
 
+## Called from: battle_manager.gd's _refresh_hud(), once per side, every
+## time the HUD needs to catch up to current state (each tick, after a hit,
+## on turn start).
+## Purpose: pushes one side's current HP/ATB/downed-state onto its existing
+## rows -- does not rebuild them.
 func update_party(party: Array[Combatant], is_enemy: bool) -> void:
 	var rows := _enemy_rows if is_enemy else _player_rows
 	for i in party.size():

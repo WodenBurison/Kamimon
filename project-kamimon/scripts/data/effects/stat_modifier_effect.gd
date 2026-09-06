@@ -5,11 +5,8 @@ class_name StatModifierEffect
 ## the actual stage math (clamped to +/-3 stages, +/-15%% each -- Claude's
 ## placeholder numbers, not yet Woden-reviewed).
 ##
-## Replaces MoveData's old flat effect_stat/effect_stages/effect_chance/
-## effect_duration/effect_target fields (2026-09-01, superseded same day
-## once the general MoveEffect system landed) with a standalone,
-## independently Inspector-editable resource -- multiple moves can now
-## share one StatModifierEffect.tres the same way moves already share
+## A standalone, independently Inspector-editable resource -- multiple moves
+## can share one StatModifierEffect.tres the same way moves already share
 ## MoveData.tres files, if that's ever useful.
 
 @export var stat: String = ""              # "Attack"/"Defense"/"Speed"/"Accuracy"/"Evasion"/"CritStat"
@@ -18,6 +15,12 @@ class_name StatModifierEffect
 @export var duration: int = 3
 @export var target: String = "defender"    # "defender" or "self"
 
+## Called from: battle_manager.gd's _resolve_single_hit(), once per hit, for
+## each effect in the move's effects array. Also called directly by
+## battle_smoke_test.gd.
+## Purpose: rolls this effect's chance, and if it hits, applies its stat
+## stage delta to the attacker or defender (per `target`) and posts a
+## message about it.
 func apply(attacker: Combatant, defender: Combatant, battle: BattleManager) -> void:
 	if stat == "":
 		return

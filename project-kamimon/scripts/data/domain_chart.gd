@@ -10,12 +10,9 @@ class_name DomainChart
 ## relationship (in either direction) is neutral, same domain vs itself is
 ## also neutral (no explicit same-domain rule in the design).
 ##
-## This is pure graph data now — the ranked multi-domain stab/weakness/
+## This is pure graph data -- the ranked multi-domain stab/weakness/
 ## resistance resolution that actually reads this table lives in
-## TypeResolution (scripts/data/type_resolution.gd), which replaced the old
-## single-Domain get_multiplier()/1.5x/0.5x placeholder that used to live in
-## this file (2026-08-31 — see the locked Combat damage formula design in
-## Kamimon_Design_Notes/050 Combat.md).
+## TypeResolution (scripts/data/type_resolution.gd).
 const BEATS := {
 	"Tide": ["Flame", "Metal"],
 	"Flame": ["Verdant", "Stone", "Frost"],
