@@ -422,7 +422,13 @@ func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -
 ## Purpose: how many times a move repeats against its target -- reads
 ## move.attempts directly.
 func _hit_count(move: MoveData) -> int:
-	return move.attempts
+	var mina = move.min_attempts
+	var maxa = move.max_attempts
+	if mina == maxa:
+		return mina
+	else:
+		var attempts = randi_range(mina, maxa)
+		return attempts
 
 
 ## Called from: internal -- _resolve_player_aoe_action(),

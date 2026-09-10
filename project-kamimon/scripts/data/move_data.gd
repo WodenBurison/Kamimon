@@ -19,9 +19,10 @@ class_name MoveData
 ## only target_all and random_target below are actually wired in; a
 ## value here above 1 currently does nothing.
 @export var targets: int = 1
-## How many times this move repeats against its target. Read directly by
+## Minimum and maximum number of times this move repeats against its target. Read directly by
 ## BattleManager._hit_count().
-@export var attempts: int = 1
+@export var min_attempts: int = 1
+@export var max_attempts: int = 1
 ## Skips the target picker and hits one randomly-chosen living enemy.
 ## Read by BattleActionMenu._on_move_button_pressed().
 @export var random_target: bool = false

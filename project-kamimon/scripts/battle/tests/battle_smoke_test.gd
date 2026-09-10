@@ -25,29 +25,29 @@ func _initialize() -> void:
 func _run_tests() -> void:
 	await process_frame
 
-	await _test000100_scene_loads_and_menu_opens()
-	await _test000200_attack_hits_and_advances_turn()
-	await _test000300_assigned_move_hits()
-	await _test000400_downed_excluded_from_targets()
-	_test000500_guard_halves_damage()
-	_test000600_domain_effectiveness()
-	await _test002100_win_detection()
-	await _test002200_run_flees()
-	await _test000700_level_gap_affects_damage()
-	await _test000800_gear_affects_damage()
-	await _test000900_evasion_reduces_hit_chance()
-	await _test001000_crit_stat_raises_crit_chance()
-	await _test001100_crit_can_multiply_damage()
-	await _test001200_stat_modifier_changes_effective_stat_and_damage()
-	await _test001300_move_effect_applies_stat_modifier_to_defender()
-	_test002000_stat_modifier_expires_after_duration()
-	await _test001400_multi_hit_effect_deals_multiple_hits()
-	await _test001500_resolve_multi_target_attack_hits_all_living_targets()
-	await _test001600_multi_target_move_skips_picker_and_hits_all_enemies()
-	await _test001610_random_target_move_targets_randomly()
-	await _test001700_enemy_ai_uses_multi_target_move_on_all_players()
-	_test001800_placeholder_battle_data_returns_independent_instances()
-	_test001900_effective_speed_has_diminishing_returns()
+	await _scene_loads_and_menu_opens_test000100()
+	await _attack_hits_and_advances_turn_test000200()
+	await _assigned_move_hits_test000300()
+	await _downed_excluded_from_targets_test000400()
+	_guard_halves_damage_test000500()
+	_domain_effectiveness_test000600()
+	await _win_detection_test002100()
+	await _run_flees_test002200()
+	await _level_gap_affects_damage_test000700()
+	await _gear_affects_damage_test000800()
+	await _evasion_reduces_hit_chance_test000900()
+	await _crit_stat_raises_crit_chance_test001000()
+	await _crit_can_multiply_damage_test001100()
+	await _stat_modifier_changes_effective_stat_and_damage_test001200()
+	await _move_effect_applies_stat_modifier_to_defender_test001300()
+	_stat_modifier_expires_after_duration_test002000()
+	await _multi_hit_effect_deals_multiple_hits_test001400()
+	await _resolve_multi_target_attack_hits_all_living_targets_test001500()
+	await _multi_target_move_skips_picker_and_hits_all_enemies_test001600()
+	await _random_target_move_targets_randomly_test001610()
+	await _enemy_ai_uses_multi_target_move_on_all_players_test001700()
+	_placeholder_battle_data_returns_independent_instances_test001800()
+	_effective_speed_has_diminishing_returns_test001900()
 
 	print("\n=== %d passed, %d failed ===" % [_pass_count, _fail_count])
 	quit(0 if _fail_count == 0 else 1)
@@ -77,7 +77,7 @@ func _new_combatant(mon_name: String, hp: int, atk: int, def: int, spd: int) -> 
 
 ## ---------------------------------------------------------------------
 
-func _test000100_scene_loads_and_menu_opens() -> void:
+func _scene_loads_and_menu_opens_test000100() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -104,7 +104,7 @@ func _test000100_scene_loads_and_menu_opens() -> void:
 	battle.queue_free()
 	await process_frame
 
-func _test000200_attack_hits_and_advances_turn() -> void:
+func _attack_hits_and_advances_turn_test000200() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -134,7 +134,7 @@ func _test000200_attack_hits_and_advances_turn() -> void:
 	battle.queue_free()
 	await process_frame
 
-func _test000300_assigned_move_hits() -> void:
+func _assigned_move_hits_test000300() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -155,7 +155,7 @@ func _test000300_assigned_move_hits() -> void:
 	battle.queue_free()
 	await process_frame
 
-func _test000400_downed_excluded_from_targets() -> void:
+func _downed_excluded_from_targets_test000400() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -185,7 +185,7 @@ func _test000400_downed_excluded_from_targets() -> void:
 	battle.queue_free()
 	await process_frame
 
-func _test000500_guard_halves_damage() -> void:
+func _guard_halves_damage_test000500() -> void:
 	var attacker := _new_combatant("TestAttacker", 100, 20, 5, 10)
 	var move := MoveData.new()
 	move.display_name = "TestStrike"
@@ -222,7 +222,7 @@ func _test000500_guard_halves_damage() -> void:
 ## real locked graph: Tide beats Flame (super-effective), Flame beats
 ## Verdant (so a Verdant-domain move into a Flame-domain defender is
 ## not-very-effective).
-func _test000600_domain_effectiveness() -> void:
+func _domain_effectiveness_test000600() -> void:
 	var attacker := _new_combatant("TestAttacker", 100, 20, 5, 10)
 	# No domains set on the attacker deliberately — isolates this test to
 	# weakness/resistance (defender-side) only, no stab in the mix.
@@ -282,7 +282,7 @@ func _test000600_domain_effectiveness() -> void:
 ## _resolve_attack now that MonsterData carries a real level field — same
 ## power/stats/domains on both sides, only level differs, so any damage
 ## difference has to come from the level-gap term.
-func _test000700_level_gap_affects_damage() -> void:
+func _level_gap_affects_damage_test000700() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -320,7 +320,7 @@ func _test000700_level_gap_affects_damage() -> void:
 ## New 2026-08-31: verifies the equipment skeleton's equip_power()/
 ## gearFactor plumbing actually affects damage, using the 3-slot array
 ## directly (no real gear items exist yet, see MonsterData.equipped_gear).
-func _test000800_gear_affects_damage() -> void:
+func _gear_affects_damage_test000800() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -359,7 +359,7 @@ func _test000800_gear_affects_damage() -> void:
 ## the MIN_HIT_CHANCE floor. Tests the pure formula directly (like
 ## _compute_damage) rather than over many random trials, since the formula
 ## itself is deterministic.
-func _test000900_evasion_reduces_hit_chance() -> void:
+func _evasion_reduces_hit_chance_test000900() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -388,7 +388,7 @@ func _test000900_evasion_reduces_hit_chance() -> void:
 ## reads the attacker's Crit stat, and that a default-stat monster (equal to
 ## CRIT_STAT_REFERENCE) lands exactly on BASE_CRIT_CHANCE — i.e. this is a
 ## true no-op for every existing test that doesn't set crit_stat.
-func _test001000_crit_stat_raises_crit_chance() -> void:
+func _crit_stat_raises_crit_chance_test001000() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -419,7 +419,7 @@ func _test001000_crit_stat_raises_crit_chance() -> void:
 ## than asserting on one — with the constants above that's a well under
 ## 1-in-a-million chance of a false failure, while still being a real
 ## end-to-end check through the same code path battles use.
-func _test001100_crit_can_multiply_damage() -> void:
+func _crit_can_multiply_damage_test001100() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -457,7 +457,7 @@ func _test001100_crit_can_multiply_damage() -> void:
 ## _compute_damage - a debuffed defender should take more damage than an
 ## unmodified one at otherwise-identical stats. Pure/deterministic, no RNG
 ## involved (unlike the move-effect trigger tests below).
-func _test001200_stat_modifier_changes_effective_stat_and_damage() -> void:
+func _stat_modifier_changes_effective_stat_and_damage_test001200() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -492,7 +492,7 @@ func _test001200_stat_modifier_changes_effective_stat_and_damage() -> void:
 ## worth testing separately). Also confirms a move with effects == []
 ## leaves the defender's stat_modifiers untouched, so the whole mechanic is
 ## a true no-op for every other move/test in this file.
-func _test001300_move_effect_applies_stat_modifier_to_defender() -> void:
+func _move_effect_applies_stat_modifier_to_defender_test001300() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -532,7 +532,7 @@ func _test001300_move_effect_applies_stat_modifier_to_defender() -> void:
 ## identical power should deal roughly 3x the damage (not exactly, since
 ## each hit rolls its own 0.9-1.1 variance independently -- checked with a
 ## wide tolerance band, not an exact multiple).
-func _test001400_multi_hit_effect_deals_multiple_hits() -> void:
+func _multi_hit_effect_deals_multiple_hits_test001400() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -540,7 +540,8 @@ func _test001400_multi_hit_effect_deals_multiple_hits() -> void:
 	multi_move.display_name = "TripleStrike"
 	multi_move.power = 10
 	multi_move.accuracy = 1.0
-	multi_move.attempts = 3
+	multi_move.min_attempts = 3
+	multi_move.max_attempts = 3
 
 	var single_move := MoveData.new()
 	single_move.display_name = "TestStrike"
@@ -573,7 +574,7 @@ func _test001400_multi_hit_effect_deals_multiple_hits() -> void:
 
 ## Verifies resolve_multi_target_attack hits every living target and skips
 ## downed ones. Called directly here, independent of any move effect.
-func _test001500_resolve_multi_target_attack_hits_all_living_targets() -> void:
+func _resolve_multi_target_attack_hits_all_living_targets_test001500() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -603,7 +604,7 @@ func _test001500_resolve_multi_target_attack_hits_all_living_targets() -> void:
 ## skips the target picker entirely and damages every living enemy,
 ## exercising the exact same path a player takes: Battle -> a move button
 ## -> (no target menu) -> resolved.
-func _test001600_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
+func _multi_target_move_skips_picker_and_hits_all_enemies_test001600() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -641,7 +642,7 @@ func _test001600_multi_target_move_skips_picker_and_hits_all_enemies() -> void:
 	await process_frame
 
 ## Verifying a random target move actually targets randomly.
-func _test001610_random_target_move_targets_randomly() -> void:
+func _random_target_move_targets_randomly_test001610() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -683,7 +684,7 @@ func _test001610_random_target_move_targets_randomly() -> void:
 ## resolve_multi_target_attack against the whole living player party,
 ## instead of the single randomly-picked target it uses for every other
 ## move.
-func _test001700_enemy_ai_uses_multi_target_move_on_all_players() -> void:
+func _enemy_ai_uses_multi_target_move_on_all_players_test001700() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -719,7 +720,7 @@ func _test001700_enemy_ai_uses_multi_target_move_on_all_players() -> void:
 ## hand back the same MonsterData object twice). Mutates one party's
 ## Emberkit and confirms a second, independently-fetched party's Emberkit
 ## is unaffected.
-func _test001800_placeholder_battle_data_returns_independent_instances() -> void:
+func _placeholder_battle_data_returns_independent_instances_test001800() -> void:
 	var party_a := PlaceholderBattleData.get_player_party()
 	var party_b := PlaceholderBattleData.get_player_party()
 
@@ -742,7 +743,7 @@ func _test001800_placeholder_battle_data_returns_independent_instances() -> void
 ## check, (3) effective speed always stays strictly below SPEED_REFERENCE
 ## no matter how high the base stat goes, confirming it's a true
 ## asymptotic cap and not just a slower linear climb.
-func _test001900_effective_speed_has_diminishing_returns() -> void:
+func _effective_speed_has_diminishing_returns_test001900() -> void:
 	var low_slow := _new_combatant("LowSlow", 100, 10, 10, 10)
 	var low_fast := _new_combatant("LowFast", 100, 10, 10, 20)
 	var high_slow := _new_combatant("HighSlow", 100, 10, 10, 100)
@@ -778,7 +779,7 @@ func _test001900_effective_speed_has_diminishing_returns() -> void:
 ## New 2026-09-01: verifies tick_stat_modifiers() actually decays and
 ## removes an expired modifier, and that Combatant.effective_defense()
 ## returns to the unmodified base stat once it's gone.
-func _test002000_stat_modifier_expires_after_duration() -> void:
+func _stat_modifier_expires_after_duration_test002000() -> void:
 	var defender := _new_combatant("Defender", 100, 10, 10, 10)
 	defender.apply_stat_modifier("Defense", -1, 1)
 	_check("002000a: modifier is active immediately after being applied", defender.stat_modifiers.has("Defense"))
@@ -787,7 +788,7 @@ func _test002000_stat_modifier_expires_after_duration() -> void:
 	_check("002000b: a 1-turn modifier is gone after a single tick", not defender.stat_modifiers.has("Defense"))
 	_check("002000c: effective_defense() returns to the base stat once the modifier expires", defender.effective_defense() == 10.0)
 
-func _test002100_win_detection() -> void:
+func _win_detection_test002100() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -810,7 +811,7 @@ func _test002100_win_detection() -> void:
 	battle.queue_free()
 	await process_frame
 
-func _test002200_run_flees() -> void:
+func _run_flees_test002200() -> void:
 	var battle := _load_battle()
 	await process_frame
 
@@ -827,6 +828,10 @@ func _test002200_run_flees() -> void:
 	battle.queue_free()
 	await process_frame
 
+
+
+
+
 ## ---------------------------------------------------------------------
 
 ## Presses whichever target-menu button is at the given living-target index
@@ -837,3 +842,4 @@ func _confirm_target_index(battle: Node2D, index: int) -> void:
 		if child != battle.action_menu.target_back_button:
 			buttons.append(child)
 	(buttons[index] as Button).pressed.emit()
+
