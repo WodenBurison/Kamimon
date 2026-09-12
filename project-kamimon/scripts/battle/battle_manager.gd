@@ -420,7 +420,7 @@ func _resolve_attack(attacker: Combatant, defender: Combatant, move: MoveData) -
 
 ## Called from: internal only -- _resolve_attack().
 ## Purpose: how many times a move repeats against its target -- reads
-## move.attempts directly.
+## move min/max attempts directly.
 func _hit_count(move: MoveData) -> int:
 	var mina = move.min_attempts
 	var maxa = move.max_attempts

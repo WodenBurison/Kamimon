@@ -42,6 +42,7 @@ func _run_tests() -> void:
 	await _move_effect_applies_stat_modifier_to_defender_test001300()
 	_stat_modifier_expires_after_duration_test002000()
 	await _multi_hit_effect_deals_multiple_hits_test001400()
+	await _different_minmax_attempts_deal_multiple_hits_test001410()
 	await _resolve_multi_target_attack_hits_all_living_targets_test001500()
 	await _multi_target_move_skips_picker_and_hits_all_enemies_test001600()
 	await _random_target_move_targets_randomly_test001610()
@@ -527,7 +528,7 @@ func _move_effect_applies_stat_modifier_to_defender_test001300() -> void:
 	battle.queue_free()
 	await process_frame
 
-## Verifies MoveData.attempts actually makes _resolve_attack hit multiple
+## Verifies move data min/max attempt values actually makes _resolve_attack hit multiple
 ## times -- a fixed 3-attempt move against a plain single-hit move of
 ## identical power should deal roughly 3x the damage (not exactly, since
 ## each hit rolls its own 0.9-1.1 variance independently -- checked with a
@@ -568,6 +569,52 @@ func _multi_hit_effect_deals_multiple_hits_test001400() -> void:
 	var frail_defender := _new_combatant("FrailDefender", 5, 10, 10, 10)
 	battle._resolve_attack(attacker, frail_defender, multi_move)
 	_check("001400b: a multi-hit move downs a frail target and stops there", frail_defender.is_downed())
+
+	battle.queue_free()
+	await process_frame
+
+## Same as test 001400, but vary the min/max attempts.
+func _different_minmax_attempts_deal_multiple_hits_test001410() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var small_move := MoveData.new()
+	small_move.display_name = "smallerstrike"
+	small_move.power = 10
+	small_move.accuracy = 1.0
+	small_move.min_attempts = 2
+	small_move.max_attempts = 4
+
+	var big_move := MoveData.new()
+	big_move.display_name = "bigstrike"
+	big_move.power = 10
+	big_move.accuracy = 1.0
+	big_move.min_attempts = 9
+	big_move.max_attempts = 11
+
+	var attacker := _new_combatant("Attacker", 100, 20, 10, 10)
+	var small_defender := _new_combatant("smallDefender", 300, 10, 10, 10)
+	var big_defender := _new_combatant("bigDefender", 300, 10, 10, 10)
+
+	battle._resolve_attack(attacker, small_defender, small_move)
+	var small_damage := 300 - small_defender.current_hp
+
+	battle._resolve_attack(attacker, big_defender, big_move)
+	var big_damage := 300 - big_defender.current_hp
+
+	_check(
+		"001410a: a big move deals noticeably more total damage than a small move of equal power (%d > %d)" % [big_damage, small_damage],
+		big_damage > small_damage * 2
+	)
+
+	# A target downed partway through a multi-hit sequence should stop the
+	# remaining hits, not deal damage to an already-downed combatant.
+	var frail_defender := _new_combatant("FrailDefender", 5, 10, 10, 10)
+	battle._resolve_attack(attacker, frail_defender, big_move)
+	_check("001410b: a big move downs a frail target and stops there", frail_defender.is_downed())
+
+	var randomnum := randi_range(1, 3)
+	print(randomnum)
 
 	battle.queue_free()
 	await process_frame
