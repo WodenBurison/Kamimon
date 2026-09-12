@@ -8,3 +8,4 @@ script = ExtResource("1_riq3k")
 display_name = "Tackle"
 power = 12
 accuracy = 0.95
+targets = 2

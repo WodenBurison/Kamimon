@@ -8,4 +8,5 @@ script = ExtResource("2_e28qk")
 display_name = "Bite"
 power = 14
 accuracy = 0.9
+targets = 2
 domains = Array[String](["Frost"])

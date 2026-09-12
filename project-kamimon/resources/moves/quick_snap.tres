@@ -1,9 +1,10 @@
-[gd_resource type="Resource" script_class="MoveData" format=3]
+[gd_resource type="Resource" script_class="MoveData" format=3 uid="uid://6pk3ij5ql5hx"]
 
-[ext_resource type="Script" path="res://scripts/data/move_effect.gd" id="1_gyh32"]
-[ext_resource type="Script" path="res://scripts/data/move_data.gd" id="2_uide5"]
+[ext_resource type="Script" uid="uid://c6k0md0l1tg7x" path="res://scripts/data/move_effect.gd" id="1_gyh32"]
+[ext_resource type="Script" uid="uid://dsclnrfi3suut" path="res://scripts/data/move_data.gd" id="2_uide5"]
 
 [resource]
 script = ExtResource("2_uide5")
 display_name = "Quick Snap"
 power = 6
+targets = 2

@@ -940,4 +940,3 @@ func _confirm_target_index(battle: Node2D, index: int) -> void:
 		if child != battle.action_menu.target_back_button:
 			buttons.append(child)
 	(buttons[index] as Button).pressed.emit()
-
