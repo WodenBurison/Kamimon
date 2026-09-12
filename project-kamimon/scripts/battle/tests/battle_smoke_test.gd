@@ -45,6 +45,7 @@ func _run_tests() -> void:
 	await _different_minmax_attempts_deal_multiple_hits_test001410()
 	await _resolve_multi_target_attack_hits_all_living_targets_test001500()
 	await _multi_target_move_skips_picker_and_hits_all_enemies_test001600()
+	await _multi_target_move_selects_exact_number_of_targets_test001620()
 	await _random_target_move_targets_randomly_test001610()
 	await _enemy_ai_uses_multi_target_move_on_all_players_test001700()
 	_placeholder_battle_data_returns_independent_instances_test001800()
@@ -613,9 +614,6 @@ func _different_minmax_attempts_deal_multiple_hits_test001410() -> void:
 	battle._resolve_attack(attacker, frail_defender, big_move)
 	_check("001410b: a big move downs a frail target and stops there", frail_defender.is_downed())
 
-	var randomnum := randi_range(1, 3)
-	print(randomnum)
-
 	battle.queue_free()
 	await process_frame
 
@@ -684,6 +682,59 @@ func _multi_target_move_skips_picker_and_hits_all_enemies_test001600() -> void:
 		if battle.enemy_party[i].current_hp >= hp_before[i]:
 			all_hit = false
 	_check("001600d: every living enemy took damage from the AoE move", all_hit)
+
+	battle.queue_free()
+	await process_frame
+
+## Verifies a move with targets > 1 selects exactly that many enemies and
+## resolves once all required picks have been made.
+func _multi_target_move_selects_exact_number_of_targets_test001620() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var move := MoveData.new()
+	move.display_name = "DoubleStrike"
+	move.power = 15
+	move.accuracy = 1.0
+	move.targets = 2
+
+	var actor: Combatant = battle.player_party[0]
+	actor.data.assigned_moves = [move, move, move]
+
+	var hp_before: Array[int] = []
+	for c in battle.enemy_party:
+		hp_before.append(c.current_hp)
+
+	battle._start_turn(actor)
+	battle.action_menu.battle_button.pressed.emit()
+	battle.action_menu.move1_button.pressed.emit()
+
+	_check(
+		"001620a: a multi-target move opens the picker instead of auto-resolving",
+		battle.action_menu.target_menu_scroll.visible
+	)
+
+	var buttons: Array[Button] = []
+	for child in battle.action_menu.target_menu.get_children():
+		if child is Button and child != battle.action_menu.target_back_button:
+			buttons.append(child)
+	var button_a: Button = buttons[0]
+	var button_b: Button = buttons[1]
+	button_a.pressed.emit()
+	_check(
+		"001620b: selecting the first target does not resolve the move yet",
+		battle.action_menu.visible
+	)
+	button_b.pressed.emit()
+
+	_check("001620c: the action menu hides after selecting the required number of targets", not battle.action_menu.visible)
+	_check("001620d: state returns to TICKING after a multi-target move resolves", battle.state == battle.State.TICKING)
+
+	var targets_hit := 0
+	for i in battle.enemy_party.size():
+		if battle.enemy_party[i].current_hp < hp_before[i]:
+			targets_hit += 1
+	_check("001620e: exactly 2 enemies took damage from the multi-target move", targets_hit == 2)
 
 	battle.queue_free()
 	await process_frame

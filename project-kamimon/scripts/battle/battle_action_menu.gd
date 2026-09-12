@@ -20,6 +20,7 @@ signal attack_selected(target_index: int)
 signal guard_selected
 signal move_selected(move_index: int, target_index: int)
 signal move_selected_random(move_index: int, target_index: int)
+signal move_selected_targets(move_index: int, target_indices: Array[int])
 signal move_selected_all_enemies(move_index: int)
 signal run_selected
 
@@ -58,6 +59,8 @@ var _enemy_status: Array[Dictionary] = []
 ## "attack", "move", or "" when no target pick is pending.
 var _pending_action := ""
 var _pending_move_index := -1
+var _pending_target_indices: Array[int] = []
+var _pending_target_limit := 0
 
 ## Called from: Godot itself, automatically, when this node enters the
 ## scene tree.
@@ -149,11 +152,16 @@ func _on_move_button_pressed(move_index: int) -> void:
 		return
 	_pending_action = "move"
 	_pending_move_index = move_index
+	_pending_target_indices.clear()
+	_pending_target_limit = 0
 	if _actor_moves[move_index].target_all:
 		_confirm_all_enemies()
 		return
 	if _actor_moves[move_index].random_target == true:
 		_confirm_random_target()
+		return
+	if _actor_moves[move_index].targets > 1:
+		_open_multi_target_menu()
 		return
 	_open_target_menu()
 
@@ -197,6 +205,26 @@ func _open_target_menu() -> void:
 	_build_target_menu(living)
 	_show_only(target_menu_scroll)
 
+## Called from: internal only -- _on_move_button_pressed() when a move has
+## targets > 1.
+## Purpose: opens a target picker that keeps collecting enemy choices until
+## the move's target count is reached.
+func _open_multi_target_menu() -> void:
+	var living := _living_enemy_indices()
+	if living.is_empty():
+		_pending_action = ""
+		_pending_move_index = -1
+		_pending_target_indices.clear()
+		_pending_target_limit = 0
+		return
+	_pending_target_indices.clear()
+	_pending_target_limit = min(_actor_moves[_pending_move_index].targets, living.size())
+	if _pending_target_limit <= 1:
+		_confirm_target(living[0])
+		return
+	_build_target_menu(living)
+	_show_only(target_menu_scroll)
+
 ## Called from: internal only -- _open_target_menu().
 ## Purpose: builds one button per living enemy in the target menu.
 func _build_target_menu(living: Array[int]) -> void:
@@ -219,8 +247,25 @@ func _build_target_menu(living: Array[int]) -> void:
 func _confirm_target(target_index: int) -> void:
 	var action := _pending_action
 	var move_index := _pending_move_index
+	if action == "move" and move_index >= 0 and move_index < _actor_moves.size() and _actor_moves[move_index].targets > 1:
+		if not _pending_target_indices.has(target_index):
+			_pending_target_indices.append(target_index)
+		if _pending_target_indices.size() >= _pending_target_limit:
+			var selected_targets := _pending_target_indices.duplicate()
+			_pending_action = ""
+			_pending_move_index = -1
+			_pending_target_indices.clear()
+			_pending_target_limit = 0
+			hide_all()
+			move_selected_targets.emit(move_index, selected_targets)
+			return
+		_show_only(target_menu_scroll)
+		return
+
 	_pending_action = ""
 	_pending_move_index = -1
+	_pending_target_indices.clear()
+	_pending_target_limit = 0
 	hide_all()
 	if action == "attack":
 		attack_selected.emit(target_index)

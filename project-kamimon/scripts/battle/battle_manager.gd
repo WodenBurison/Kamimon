@@ -97,6 +97,7 @@ func _ready() -> void:
 	action_menu.guard_selected.connect(_on_guard_selected)
 	action_menu.move_selected.connect(_on_move_selected)
 	action_menu.move_selected_random.connect(_on_move_selected)
+	action_menu.move_selected_targets.connect(_on_move_selected_targets)
 	action_menu.move_selected_all_enemies.connect(_on_move_selected_all_enemies)
 	action_menu.run_selected.connect(_on_run_selected)
 	hud.build(player_party, enemy_party)
@@ -236,6 +237,33 @@ func _on_move_selected_all_enemies(move_index: int) -> void:
 	if move_index < 0 or move_index >= moves.size():
 		return
 	_resolve_player_aoe_action(moves[move_index])
+
+## Called from: action_menu.move_selected_targets signal (connected in
+## _ready()).
+## Purpose: resolves a move whose targets value is greater than 1 against the
+## selected set of enemy targets, while skipping downed enemies.
+func _on_move_selected_targets(move_index: int, target_indices: Array[int]) -> void:
+	if state != State.PLAYER_INPUT:
+		return
+	var moves := _current_actor.data.assigned_moves
+	if move_index < 0 or move_index >= moves.size():
+		return
+	var move: MoveData = moves[move_index]
+	var targets: Array[Combatant] = []
+	for target_index in target_indices:
+		if target_index < 0 or target_index >= enemy_party.size():
+			continue
+		var target: Combatant = enemy_party[target_index]
+		if not target.is_downed():
+			targets.append(target)
+	if targets.is_empty():
+		action_menu.hide_all()
+		_after_action()
+		return
+	state = State.RESOLVING
+	resolve_multi_target_attack(_current_actor, targets, move)
+	action_menu.hide_all()
+	_after_action()
 
 ## Called from: action_menu.guard_selected signal (connected in _ready()).
 ## Purpose: applies Guard's damage-halving to the acting combatant and
