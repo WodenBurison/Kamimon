@@ -344,6 +344,13 @@ func _start_enemy_turn(actor: Combatant) -> void:
 		var move: MoveData = moves[randi() % moves.size()] if not moves.is_empty() else _basic_attack_move()
 		if move.target_all:
 			resolve_multi_target_attack(actor, targets, move)
+		elif move.targets > 1:
+			var target_list: Array[Combatant] = []
+			var targetvar = move.targets
+			for i in range(targetvar):
+				var target_selected: Combatant = targets[randi() % targets.size()]
+				target_list.append(target_selected)
+			resolve_multi_target_attack(actor, target_list, move)
 		else:
 			_resolve_attack(actor, target, move)
 	_after_action()
