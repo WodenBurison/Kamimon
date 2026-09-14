@@ -248,8 +248,7 @@ func _confirm_target(target_index: int) -> void:
 	var action := _pending_action
 	var move_index := _pending_move_index
 	if action == "move" and move_index >= 0 and move_index < _actor_moves.size() and _actor_moves[move_index].targets > 1:
-		if not _pending_target_indices.has(target_index):
-			_pending_target_indices.append(target_index)
+		_pending_target_indices.append(target_index)
 		if _pending_target_indices.size() >= _pending_target_limit:
 			var selected_targets := _pending_target_indices.duplicate()
 			_pending_action = ""
