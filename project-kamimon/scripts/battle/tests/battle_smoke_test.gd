@@ -686,6 +686,44 @@ func _multi_target_move_skips_picker_and_hits_all_enemies_test001600() -> void:
 	battle.queue_free()
 	await process_frame
 
+## Verifying a random target move actually targets randomly.
+func _random_target_move_targets_randomly_test001610() -> void:
+	var battle := _load_battle()
+	await process_frame
+
+	var move := MoveData.new()
+	move.display_name = "RandomStrike"
+	move.power = 15
+	move.accuracy = 1.0
+	move.random_target = true
+
+	var actor: Combatant = battle.player_party[0]
+	actor.data.assigned_moves = [move, move, move]
+
+	var hp_before: Array[int] = []
+	for c in battle.enemy_party:
+		hp_before.append(c.current_hp)
+
+	battle._start_turn(actor)
+	battle.action_menu.battle_button.pressed.emit()
+	battle.action_menu.move1_button.pressed.emit()
+
+	_check(
+		"001610a: a random-target move skips the target picker entirely",
+		not battle.action_menu.target_menu_scroll.visible)
+	_check("001610b: action menu hides after an random-target move resolves", not battle.action_menu.visible)
+	_check("001610c: state returns to TICKING after an random-target move resolves", battle.state == battle.State.TICKING)
+
+	var targets_hit := 0
+	for i in battle.enemy_party.size():
+		if battle.enemy_party[i].current_hp < hp_before[i]:
+			targets_hit += 1
+
+	_check("001610d: only one living enemy took damage from the random-target move", targets_hit == 1)
+
+	battle.queue_free()
+	await process_frame
+
 ## Verifies a move with targets > 1 selects exactly that many enemies and
 ## resolves once all required picks have been made.
 func _multi_target_move_selects_exact_number_of_targets_test001620() -> void:
@@ -735,44 +773,6 @@ func _multi_target_move_selects_exact_number_of_targets_test001620() -> void:
 		if battle.enemy_party[i].current_hp < hp_before[i]:
 			targets_hit += 1
 	_check("001620e: exactly 2 enemies took damage from the multi-target move", targets_hit == 2)
-
-	battle.queue_free()
-	await process_frame
-
-## Verifying a random target move actually targets randomly.
-func _random_target_move_targets_randomly_test001610() -> void:
-	var battle := _load_battle()
-	await process_frame
-
-	var move := MoveData.new()
-	move.display_name = "RandomStrike"
-	move.power = 15
-	move.accuracy = 1.0
-	move.random_target = true
-
-	var actor: Combatant = battle.player_party[0]
-	actor.data.assigned_moves = [move, move, move]
-
-	var hp_before: Array[int] = []
-	for c in battle.enemy_party:
-		hp_before.append(c.current_hp)
-
-	battle._start_turn(actor)
-	battle.action_menu.battle_button.pressed.emit()
-	battle.action_menu.move1_button.pressed.emit()
-
-	_check(
-		"001610a: a random-target move skips the target picker entirely",
-		not battle.action_menu.target_menu_scroll.visible)
-	_check("001610b: action menu hides after an random-target move resolves", not battle.action_menu.visible)
-	_check("001610c: state returns to TICKING after an random-target move resolves", battle.state == battle.State.TICKING)
-
-	var targets_hit := 0
-	for i in battle.enemy_party.size():
-		if battle.enemy_party[i].current_hp < hp_before[i]:
-			targets_hit += 1
-
-	_check("001610d: only one living enemy took damage from the random-target move", targets_hit == 1)
 
 	battle.queue_free()
 	await process_frame
